@@ -4,53 +4,96 @@ export const useConfiguratorStore = defineStore('configurator', {
     state: () => ({
         currentStep: 0,
         selectedSeries: null,
-        elements: {
-            walls: null,
-            doors: null,
-            windows: null,
-            terrace: null,
-            dormers: null,
-            roofColor: null,
-            exteriorColor: null,
-        },
+        menuItems: [
+            {
+                name: "Model",
+                subItems: [
+                    { name: "Trio series" ,
+                    subItems: [
+                        { name: "Trio 57" },
+                        { name: "Trio 75" },
+                        { name: "Trio 100" },
+                        { name: "Trio 120" },
+                        { name: "Trio 150" },
+                        ],
+                    },
+
+                    { name: "Duo series" ,
+                        subItems: [
+                            { name: "Duo 57" },
+                            { name: "Duo 75" },
+                            { name: "Duo 100" },
+                            { name: "Duo 120" },
+                        ],
+                    },
+                    { name: "Solo+ series" ,
+                        subItems: [
+                            { name: "Solo+ 42" },
+                            { name: "Solo+ 75" },
+                            { name: "Solo+ 100" },
+                        ],
+                    },
+                ],
+            },
+            {
+                name: "Adding and modifying elements",
+                subItems: [
+                    { name: "Partitions and indoor doors" },
+                    { name: "Front door colors" },
+                    { name: "Terrace" },
+                    {
+                        name: "Dormer",
+                        subItems: [
+                            { name: "Dormers on the side of the house" },
+                            { name: "Covered Entry" },
+                            { name: "Gallery*" },
+                        ],
+                    },
+                    {
+                        name: "Windows",
+                        subItems: [
+                            { name: "Add windows" },
+                            { name: "Indoors windows" },
+                            { name: "Color" },
+                        ],
+                    },
+                    {
+                        name: "Doors",
+                        subItems: [
+                            { name: "Uste lisamine vintskappidele" },
+                            { name: "Rõduuksed" },
+                            { name: "Välisukse muudatused" },
+                            { name: "Värv" },
+                        ],
+                    },
+                ],
+            },
+            {
+                name: "Interior",
+                subItems: [{ name: "Stairs and railings" }],
+            },
+            {
+                name: "Exterior",
+                subItems: [
+                    {
+                        name: "Wall color",
+                        subItems: [
+                            { name: "Soffit and Gable boards" },
+                            { name: "Customize" },
+                        ],
+                    },
+                    { name: "Roofing" },
+                    { name: "Skylights" },
+                    { name: "Terrace color" },
+                ],
+            },
+        ],
+        selectedConfiguration: {}, // Track currently selected options
     }),
     actions: {
-        nextStep() {
-            if (this.currentStep < this.steps.length - 1) this.currentStep++;
+        selectMenuItem(item) {
+            console.log("Selected Item: ", item);
+            this.selectedConfiguration = { ...this.selectedConfiguration, ...item };
         },
-        prevStep() {
-            if (this.currentStep > 0) this.currentStep--;
-        },
-        goToStep(index) {
-            if (index >= 0 && index < this.steps.length) this.currentStep = index;
-        },
-        setSeries(series) {
-            this.selectedSeries = series;
-        },
-        updateElement(key, value) {
-            this.elements[key] = value;
-        },
-    },
-    getters: {
-        steps: () => [
-            { id: 0, name: "Põhiplaan ja mudel" },
-            { id: 1, name: "Trio series" },
-            { id: 2, name: "Duo series" },
-            { id: 3, name: "Solo+ series" },
-            { id: 4, name: "Classic series" },
-            { id: 5, name: "Double A-frame series" },
-            { id: 6, name: "Trio A-frame Townhouse" },
-            { id: 7, name: "Elementide muutmine ja lisamine" },
-            { id: 8, name: "Vaheseinad ja siseuksed" },
-            { id: 9, name: "Terrass" },
-            { id: 10, name: "Vintskapid" },
-            { id: 11, name: "Aknad" },
-            { id: 12, name: "Uksed" },
-            { id: 13, name: "Siseviimistlus" },
-            { id: 14, name: "Välisviimistlus" },
-            { id: 15, name: "Katuse värv" },
-            { id: 16, name: "Katuse aknad" },
-            { id: 17, name: "Terrassi värv" },
-        ],
     },
 });

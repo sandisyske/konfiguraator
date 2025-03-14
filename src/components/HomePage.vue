@@ -18,7 +18,7 @@
   margin-top: 20px;
   padding: 10px 20px;
   font-size: 18px;
-  background-color: #28a745;
+  background-color: #4caf50;
   color: white;
   text-decoration: none;
   border-radius: 5px;
@@ -35,7 +35,7 @@
   align-items: center;
   background-color: #4CAF50; /* Green background */
   padding: 0.8rem 2rem;
-  color: white;
+  color: #ca5757;
 }
 
 .logo {
@@ -51,7 +51,7 @@
 
 .nav-links li a {
   text-decoration: none;
-  color: white;
+  color: #4caf50;
   font-size: 1rem;
   transition: color 0.3s;
 }

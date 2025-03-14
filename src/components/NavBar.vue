@@ -20,6 +20,7 @@
         <!-- Modify Button -->
         <img
             src="@/assets/buttons/modify_icon.png"
+            position="absolute"
             alt="Modify Title"
             @click="toggleEditing"
             class="modify-icon"
@@ -60,7 +61,7 @@ const toggleEditing = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #4CAF50; /* Green Background */
+  background-color: #ffffff; /* Green Background */
   padding: 0.8rem 2rem;
   color: white;
   height: 60px;
@@ -91,10 +92,16 @@ const toggleEditing = () => {
   gap: 0.5rem;
   font-family: "ITC Avant Garde Gothic Paneuropean Book", serif;
   font-size: 1.5rem;
+  color: #4caf50;
+  position: relative;
+
+
 }
 
 .editable-title input {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
+  font-family: "ITC Avant Garde Gothic Paneuropean Book", serif;
+  color: #4caf50;
   padding: 0.3rem;
   border: none;
   border-radius: 5px;
@@ -105,7 +112,9 @@ const toggleEditing = () => {
   height: 20px;
   width: 20px;
   cursor: pointer;
+  transform: translateY(-50%); /* Adjust vertical alignment */
 }
+
 
 /* Right-Aligned Section */
 .right-section {

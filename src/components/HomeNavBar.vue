@@ -21,7 +21,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #333; /* Dark background */
+  background-color: #ffffff; /* Dark background */
   color: white;
   padding: 0.8rem 2rem;
   height: 70px;
