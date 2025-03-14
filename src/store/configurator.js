@@ -87,7 +87,12 @@ export const useConfiguratorStore = defineStore('configurator', {
                     { name: "Terrace color" },
                 ],
             },
+            {
+                name: "Export",
+            },
         ],
+
+
         selectedConfiguration: {}, // Track currently selected options
     }),
     actions: {

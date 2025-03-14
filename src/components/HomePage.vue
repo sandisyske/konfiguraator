@@ -62,6 +62,7 @@
 
 /* Main Content Styles */
 .home-container {
+
   text-align: center;
   margin-top: 2rem;
 }
