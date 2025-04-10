@@ -49,7 +49,7 @@
 
       <!-- Main Content (3D Model) -->
       <div class="main-content">
-        <div class="model-viewer">3D Model Placeholder</div>
+        <div ref="viewer" class="model-viewer"></div>
         <div class="price-box">
           <p>Price: <strong>€21,000</strong></p>
           <button class="details-btn">Show Details</button>
@@ -58,41 +58,145 @@
     </div>
   </div>
 </template>
-
 <script setup>
-import { ref, computed } from "vue";
-import { useConfiguratorStore } from "../store/configurator";
+import { ref, computed, onMounted } from "vue";
+import { useConfiguratorStore } from "../store/configurator.js";
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
-// Get Configurator Store
 const store = useConfiguratorStore();
+// Reactive states and store bindings
+const currentStep = computed(() => store.currentStep);
+const selectedModel = computed(() => store.selectedModel);
+const menuItems = computed(() => store.menuItems);
 
-// State for stepper navigation
-const currentStep = ref(null);
+// currentStep = ref(null);
 const lastCompletedStep = ref(0);
 const selectedConfig = ref({});
 const activeSubMenu = ref(null);
 
-// Get Steps from Store
+// Updating selection state
+const selectModel = (modelName) => {
+  store.selectModel(modelName); // Update the selected model in the store
+};
+// Mark the step as complete and move to the next step
+const completeStep = (stepIndex) => {
+  store.updateStep(stepIndex + 1); // Move to the next step
+};
+
 const steps = computed(() => store.menuItems);
 const activeMenu = computed(() => (currentStep.value !== null ? steps.value[currentStep.value] : null));
 
-// Toggle Step Menu (Opens/Closes Sidebar)
 const toggleStep = (index) => {
   currentStep.value = currentStep.value === index ? null : index;
   activeSubMenu.value = null; // Reset submenus
 };
 
-// Toggle Submenus (First Level)
 const toggleSubMenu = (subItem) => {
   activeSubMenu.value = activeSubMenu.value === subItem ? null : subItem;
 };
 
-// Submenu Selection (Highlights Selection)
 const selectSubItem = (subSubItem) => {
   selectedConfig.value[activeSubMenu.value.name] = subSubItem.name;
   lastCompletedStep.value = Math.max(lastCompletedStep.value, currentStep.value + 1);
 };
+
+
+// 3D model rendering
+
+const viewer = ref(null);
+let renderer, scene, camera, model, animationFrameId;
+
+
+
+function initViewer() {
+  if (!viewer.value) return;
+
+  // Clean up previous renderer if it exists
+  if (renderer) {
+    cancelAnimationFrame(animationFrameId);
+    viewer.value.innerHTML = '';
+  }
+
+  // Scene and Camera Setup
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xeeeeee);
+
+  camera = new THREE.PerspectiveCamera(
+      75,
+      viewer.value.clientWidth / viewer.value.clientHeight,
+      1,
+      1000
+  );
+  camera.position.set(100, 0, 60); // Set a fixed camera position
+  camera.lookAt(0, 0, 0); // Always look at the center of the scene
+
+  // plane of the model
+
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(viewer.value.clientWidth, viewer.value.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  viewer.value.appendChild(renderer.domElement);
+
+  // Lights
+  const light = new THREE.HemisphereLight(0xffffff, 0x888888, 1);
+  scene.add(light);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(10, 10, 10);
+  scene.add(directionalLight);
+
+
+  // Load GLTF Model
+  const loader = new GLTFLoader();
+  loader.load('/models/TRIO120/model.glb', (gltf) => {
+    model = gltf.scene;
+    scene.add(model);
+
+    // Scale and center the model
+    const scaleFactor = 7; // Adjust as necessary
+    model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    model.position.set(-center.x, -center.y, -center.z); // Center the model
+  });
+
+
+  // Animation Loop
+  const animate = () => {
+    renderer.render(scene, camera);
+    animationFrameId = requestAnimationFrame(animate);
+  };
+  animate();
+
+  // Handle Resizing
+  window.addEventListener('resize', () => {
+    camera.aspect = viewer.value.clientWidth / viewer.value.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(viewer.value.clientWidth, viewer.value.clientHeight);
+  });
+}
+
+onMounted(() => {
+  initViewer();
+});
 </script>
+
+<style scoped>
+/* Define some basic styles for the viewer */
+.model-viewer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background-color: #f0f0f0;
+  overflow: hidden;
+}
+</style>
+
+
 
 <style scoped>
 /* Main Container */
