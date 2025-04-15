@@ -50,8 +50,15 @@
         </div>
       </div>
 
+      <div v-else-if="currentStep === 1" class="step-content">
+
+        <!-- 3D Viewer Container -->
+        <div class="viewer-area">
+          <div ref="viewer" class="model-viewer"></div>
+        </div>
+      </div>
+
       <div v-else class="step-content">
-        <h2>{{ steps[currentStep].name }}</h2>
         <p>Placeholder content for {{ steps[currentStep].name }}</p>
       </div>
 
@@ -86,8 +93,11 @@
 
 
 <script setup>
+import { onMounted, ref, watch } from "vue";
 import { computed } from "vue";
 import { useConfiguratorStore } from "@/store/configurator.js";
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 // Access the store from Pinia
 const store = useConfiguratorStore();
@@ -132,6 +142,121 @@ const proceedToNextStep = () => {
     // Save logic to be implemented
   }
 };
+
+
+// Three.js variables
+const viewer = ref(null); // Reference to the viewer container
+let scene, camera, renderer, model, animationFrameId;
+
+const initThreeJs = () => {
+  const container = viewer.value;
+  if (!container) return;
+
+  // Scene setup
+  scene = new THREE.Scene();
+
+  // Camera setup
+  const aspectRatio = container.clientWidth / container.clientHeight;
+  camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000);
+  camera.position.set(4, 5, 11);
+
+  // Renderer setup
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer.domElement);
+
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+  scene.add(ambientLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(10, 10, 10);
+  scene.add(directionalLight);
+
+  // Ground
+  const groundGeometry = new THREE.PlaneGeometry(20, 20);
+  groundGeometry.rotateX(-Math.PI / 2);
+  const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x999999, side: THREE.DoubleSide });
+
+  const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+  scene.add(groundMesh);
+
+  // Load the model
+  const loader = new GLTFLoader();
+  loader.load(
+      "models/TRIO120/model.glb", // Ensure this path is correct
+      (gltf) => {
+        model = gltf.scene;
+
+        // Create a group for proper center rotation
+        const pivot = new THREE.Group();
+        scene.add(pivot);
+
+        // Add model to the pivot group
+        pivot.add(model);
+
+        // Scale the model up (e.g., 2x its current size)
+        const scaleFactor = 0.5; // Adjust this value based on your needs
+        model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+        // Center the model on the plane
+        const box = new THREE.Box3().setFromObject(model);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+
+        // Adjust the model's position within the pivot group
+        model.position.set(-center.x, -box.min.y, -center.z);
+
+        // Rotation will now occur around the pivot group center
+        console.log("Model scaled and centered for rotation:", model.scale, model.position);
+
+        // Add animation to rotate the pivot (not the model directly)
+        const customAnimate = () => {
+          requestAnimationFrame(customAnimate);
+          pivot.rotation.y += 0.005; // Adjust the rotation speed as necessary
+          renderer.render(scene, camera);
+        };
+
+        customAnimate();
+
+        animate();
+      },
+      undefined,
+      (error) => {
+        console.error("Error loading model:", error);
+      }
+  );
+
+
+  // Animation loop
+  animate();
+};
+
+const animate = () => {
+  animationFrameId = requestAnimationFrame(animate);
+
+  renderer.render(scene, camera);
+};
+
+// Watcher: Initialize Three.js when entering step 2
+import { nextTick } from 'vue'
+
+watch(currentStep, async (newStep) => {
+  if (newStep === 1) {
+    await nextTick(); // oota kuni DOM on valmis
+    initThreeJs();
+  }
+});
+
+
+// Ensure Three.js is initialized on step 2 if component is mounted directly
+onMounted(() => {
+  if (currentStep.value === 1) {
+    initThreeJs();
+  }
+});
+
 </script>
 
 
@@ -158,6 +283,8 @@ h2 {
   padding: 15px 0;
   border-bottom: 2px solid #ddd;
   padding-left: 20px; /* Aligns steps to the left */
+  position: fixed;
+  width: 100%;
 }
 .step {
   display: flex;
@@ -202,7 +329,9 @@ h2 {
 
 /* Step Content in 1st step */
 .step-content {
-  margin-top: 0vh;
+  padding-top: 5vh;
+  width: 100vh;
+
 }
 
 /* Series Buttons Row */
@@ -275,11 +404,25 @@ h2 {
 .main-content {
   flex: 1;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  align-items: center; /* keskjoondus horisontaalselt */
+  justify-content: flex-start;
   position: relative;
-  height: calc(100vh - 80px);
+  padding-top: 80px;
+  padding-bottom: 100px;
+  overflow: hidden;
 }
+
+/*3D model viewer*/
+.model-viewer {
+  width: 100%;
+  height: 70vh; /* või midagi sobivamat, nt 600px */
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  position: relative;
+}
+
+
 
 /* Toolbar (Fixed at Bottom) */
 .toolbar {
