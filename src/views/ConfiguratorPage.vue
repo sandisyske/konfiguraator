@@ -1,6 +1,7 @@
 <template>
   <div class="configurator-container">
-    <!-- Top Navigation (Steps Aligned Left) -->
+
+    <!-- Stepper Navigation -->
     <div class="stepper">
       <div
           v-for="(step, index) in steps"
@@ -15,196 +16,139 @@
       </div>
     </div>
 
-    <!-- Content Wrapper (Fixed Left Menu + 3D Model) -->
-    <div class="content-wrapper">
-      <!-- Fixed Sidebar for Submenus -->
-      <div class="sidebar" v-if="activeMenu">
-        <h3>{{ activeMenu.name }} Options</h3>
-        <ul>
-          <li
-              v-for="(subItem, subIndex) in activeMenu.subItems"
-              :key="subIndex"
-              @click="toggleSubMenu(subItem)"
-              :class="{ selected: selectedConfig[activeMenu.name] === subItem.name }"
+
+    <div class="main-content">
+      <!-- Step 1: Series and Model Selection -->
+      <div v-if="currentStep === 0" class="step-content">
+        <h2>Select Your House Series</h2>
+
+        <!-- Show series selection -->
+        <div v-if="!selectedSeries" class="series-buttons-row">
+          <div
+              v-for="series in seriesItems"
+              :key="series.name"
+              class="series-box"
+              @click="selectSeries(series)"
           >
-            {{ subItem.name }}
-          </li>
-        </ul>
+            <h3>{{ series.name }}</h3>
+          </div>
+        </div>
 
-        <!-- Sub-submenu (Opens Inside Sidebar) -->
-        <div class="sub-submenu" v-if="activeSubMenu">
-          <h4>{{ activeSubMenu.name }}</h4>
-          <ul>
-            <li
-                v-for="(subSubItem, subSubIndex) in activeSubMenu.subItems"
-                :key="subSubIndex"
-                @click.stop="selectSubItem(subSubItem)"
-                :class="{ selected: selectedConfig[activeSubMenu.name] === subSubItem.name }"
+        <!-- Show the models of the selected series -->
+        <div v-else class="models-row">
+          <h3>Available Models in {{ selectedSeries.name }}</h3>
+          <div class="models-container">
+            <button
+                v-for="model in selectedSeries.subItems"
+                :key="model.name"
+                :class="{ selected: selectedModel === model.name }"
+                @click="selectModel(model)"
             >
-              {{ subSubItem.name }}
-            </li>
-          </ul>
+              {{ model.name }}
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Main Content (3D Model) -->
-      <div class="main-content">
-        <div ref="viewer" class="model-viewer"></div>
-        <div class="price-box">
-          <p>Price: <strong>€21,000</strong></p>
-          <button class="details-btn">Show Details</button>
-        </div>
+      <div v-else class="step-content">
+        <h2>{{ steps[currentStep].name }}</h2>
+        <p>Placeholder content for {{ steps[currentStep].name }}</p>
       </div>
+
+      <!-- Price Box (fixed bottom right corner) -->
+      <div class="price-box">
+        <p>Price: <strong>€21,000</strong></p>
+        <button class="details-btn">Show Details</button>
+      </div>
+    </div>
+
+
+    <!-- Toolbar (fixed bottom) -->
+    <div class="toolbar">
+      <button
+          class="toolbar-btn back-btn"
+          :disabled="currentStep === 0"
+          @click="goToPreviousStep"
+      >
+        Back
+      </button>
+      <button
+          class="toolbar-btn next-btn"
+          @click="proceedToNextStep"
+      >
+        {{ isLastStep ? 'Save' : 'Next' }}
+      </button>
     </div>
   </div>
 </template>
+
+
+
+
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { useConfiguratorStore } from "../store/configurator.js";
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { computed } from "vue";
+import { useConfiguratorStore } from "@/store/configurator.js";
 
+// Access the store from Pinia
 const store = useConfiguratorStore();
-// Reactive states and store bindings
+
+// Computed properties to access Pinia store state
 const currentStep = computed(() => store.currentStep);
-const selectedModel = computed(() => store.selectedModel);
-const menuItems = computed(() => store.menuItems);
+const seriesItems = computed(() => store.menuItems[0].subItems); // Series for step 0
+const selectedSeries = computed(() => store.selectedSeries); // Selected series
+const selectedModel = computed(() => store.selectedModel); // Selected model
 
-// currentStep = ref(null);
-const lastCompletedStep = ref(0);
-const selectedConfig = ref({});
-const activeSubMenu = ref(null);
+// Helpers for navigation and actions
+const isLastStep = computed(() => store.currentStep === store.menuItems.length - 1);
+const canProceedToNextStep = computed(() =>
+    selectedSeries.value && (isLastStep.value || selectedModel.value)
+);
 
-// Updating selection state
-const selectModel = (modelName) => {
-  store.selectModel(modelName); // Update the selected model in the store
+// Actions for series and model selection
+const selectSeries = (series) => {
+  store.selectSeries(series); // Set selected series in store
 };
-// Mark the step as complete and move to the next step
-const completeStep = (stepIndex) => {
-  store.updateStep(stepIndex + 1); // Move to the next step
+
+const selectModel = (model) => {
+  store.selectModel(model); // Set selected model in store
+};
+
+// Navigation actions
+const goToPreviousStep = () => {
+  if (store.currentStep > 0) {
+    store.updateStep(store.currentStep - 1);
+  }
 };
 
 const steps = computed(() => store.menuItems);
 const activeMenu = computed(() => (currentStep.value !== null ? steps.value[currentStep.value] : null));
 
-const toggleStep = (index) => {
-  currentStep.value = currentStep.value === index ? null : index;
-  activeSubMenu.value = null; // Reset submenus
-};
 
-const toggleSubMenu = (subItem) => {
-  activeSubMenu.value = activeSubMenu.value === subItem ? null : subItem;
-};
-
-const selectSubItem = (subSubItem) => {
-  selectedConfig.value[activeSubMenu.value.name] = subSubItem.name;
-  lastCompletedStep.value = Math.max(lastCompletedStep.value, currentStep.value + 1);
-};
-
-
-// 3D model rendering
-
-const viewer = ref(null);
-let renderer, scene, camera, model, animationFrameId;
-
-
-
-function initViewer() {
-  if (!viewer.value) return;
-
-  // Clean up previous renderer if it exists
-  if (renderer) {
-    cancelAnimationFrame(animationFrameId);
-    viewer.value.innerHTML = '';
+const proceedToNextStep = () => {
+  if (!isLastStep.value) {
+    store.updateStep(store.currentStep + 1);
+  } else {
+    console.log("Save configuration:", store.selectedSeries, store.selectedModel);
+    // Save logic to be implemented
   }
-
-  // Scene and Camera Setup
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xeeeeee);
-
-  camera = new THREE.PerspectiveCamera(
-      75,
-      viewer.value.clientWidth / viewer.value.clientHeight,
-      1,
-      1000
-  );
-  camera.position.set(100, 0, 60); // Set a fixed camera position
-  camera.lookAt(0, 0, 0); // Always look at the center of the scene
-
-  // plane of the model
-
-
-  // Renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(viewer.value.clientWidth, viewer.value.clientHeight);
-  renderer.setPixelRatio(window.devicePixelRatio);
-  viewer.value.appendChild(renderer.domElement);
-
-  // Lights
-  const light = new THREE.HemisphereLight(0xffffff, 0x888888, 1);
-  scene.add(light);
-
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  directionalLight.position.set(10, 10, 10);
-  scene.add(directionalLight);
-
-
-  // Load GLTF Model
-  const loader = new GLTFLoader();
-  loader.load('/models/TRIO120/model.glb', (gltf) => {
-    model = gltf.scene;
-    scene.add(model);
-
-    // Scale and center the model
-    const scaleFactor = 7; // Adjust as necessary
-    model.scale.set(scaleFactor, scaleFactor, scaleFactor);
-
-    const box = new THREE.Box3().setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
-    model.position.set(-center.x, -center.y, -center.z); // Center the model
-  });
-
-
-  // Animation Loop
-  const animate = () => {
-    renderer.render(scene, camera);
-    animationFrameId = requestAnimationFrame(animate);
-  };
-  animate();
-
-  // Handle Resizing
-  window.addEventListener('resize', () => {
-    camera.aspect = viewer.value.clientWidth / viewer.value.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(viewer.value.clientWidth, viewer.value.clientHeight);
-  });
-}
-
-onMounted(() => {
-  initViewer();
-});
+};
 </script>
 
+
+
+
+
 <style scoped>
-/* Define some basic styles for the viewer */
-.model-viewer {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  background-color: #f0f0f0;
-  overflow: hidden;
+h2 {
+  text-align: center;
 }
-</style>
-
-
-
-<style scoped>
-/* Main Container */
+/* Container for the whole configurator */
 .configurator-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
 }
+
 
 /* Stepper Navigation (Aligned Left) */
 .stepper {
@@ -256,64 +200,75 @@ onMounted(() => {
   color: #2a9d8f;
 }
 
-/* Content Wrapper */
-.content-wrapper {
+/* Step Content in 1st step */
+.step-content {
+  margin-top: 0vh;
+}
+
+/* Series Buttons Row */
+.series-buttons-row {
   display: flex;
-  flex: 1;
-  height: 100%;
+  flex-wrap: wrap;
+  gap: 15px; /* Space between buttons */
+  justify-content: center;
 }
 
-/* Sidebar (Fixed Width for Submenus) */
-.sidebar {
-  width: 250px;
-  background: white;
-  padding: 1rem;
-  border-right: 2px solid #ddd;
-  position: absolute;
-  left: 20px;
-  top: 13%;
-  height: auto;
-  z-index: 10;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-.sidebar h3 {
-  margin-bottom: 10px;
-}
-.sidebar ul {
-  list-style: none;
-  padding: 0;
-}
-.sidebar li {
-  padding: 8px;
+.series-box {
+  width: 150px;
+  /*height: 100px;*/
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background-color: #f9f9f9;
   cursor: pointer;
-  border-radius: 5px;
-  transition: background 0.3s;
-}
-.sidebar li.selected {
-  background: #4CAF50;
-  color: white;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
-/* Sub-submenu (Inside Sidebar) */
-.sub-submenu {
-  background: #f9f9f9;
-  margin-top: 30%;
-  padding: 50px;
+.series-box:hover {
+  background-color: #e6e6e6;
+}
+
+.series-box.selected {
+  background-color: #28a745;
+  color: green;
+  border-color: #166028;
+}
+
+/* Models Row */
+.models-row {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.models-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px; /* Space between buttons */
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.models-container button {
+  padding: 10px 15px;
+  color: #181818;
+  border: 2px solid #ccc;
+  background-color: white;
   border-radius: 5px;
-}
-.sub-submenu h4 {
-  margin-bottom: 5px;
-}
-.sub-submenu ul {
-  padding-left: 10px;
-}
-.sub-submenu li {
-  padding: 5px;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background-color 0.3s, border-color 0.3s;
 }
-.sub-submenu li:hover {
-  background: #218838;
+
+.models-container button:hover {
+  background-color: #f0f0f0;
+}
+
+.models-container button.selected {
+  background-color: #28a745;
+  color: #fff;
+  border-color: #166028;
 }
 
 /* Main Content (3D Model) */
@@ -325,21 +280,54 @@ onMounted(() => {
   position: relative;
   height: calc(100vh - 80px);
 }
-.model-viewer {
+
+/* Toolbar (Fixed at Bottom) */
+.toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
   width: 100%;
-  height: 100%;
-  background: #ccc;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  color: #555;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background-color: #fff;
+  border-top: 2px solid #ccc;
+}
+
+.toolbar button {
+  font-size: 16px;
+  width: 30vh;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.toolbar button.back-btn {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.toolbar button.back-btn:disabled {
+  background-color: #eaeaea;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.toolbar button.next-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.toolbar button.next-btn:disabled {
+  background-color: #cce5ff;
+  cursor: not-allowed;
 }
 
 /* Price Box Fixed at Bottom Right */
 .price-box {
   position: fixed;
-  bottom: 20px;
+  bottom: 7vh;
   right: 20px;
   background: white;
   padding: 1rem;
@@ -354,4 +342,5 @@ onMounted(() => {
   color: white;
   cursor: pointer;
 }
+
 </style>

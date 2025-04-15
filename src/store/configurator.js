@@ -4,22 +4,17 @@ import { defineStore } from "pinia";
 
 export const useConfiguratorStore = defineStore("configurator", {
     state: () => ({
-        // Current step in the configuration process
         currentStep: 0,
-
-        // Available models (menu hierarchy)
         menuItems: [
             {
                 name: "Select House Model",
                 subItems: [
                     {
-                        name: "Trio series",
+                        name: "Solo+ series",
                         subItems: [
-                            { name: "Trio 57" },
-                            { name: "Trio 75" },
-                            { name: "Trio 100" },
-                            { name: "Trio 120" },
-                            { name: "Trio 150" },
+                            { name: "Solo+ 42" },
+                            { name: "Solo+ 75" },
+                            { name: "Solo+ 100" },
                         ],
                     },
                     {
@@ -31,48 +26,41 @@ export const useConfiguratorStore = defineStore("configurator", {
                             { name: "Duo 120" },
                         ],
                     },
+                    {
+                        name: "Trio series",
+                        subItems: [
+                            { name: "Trio 57" },
+                            { name: "Trio 75" },
+                            { name: "Trio 100" },
+                            { name: "Trio 120" },
+                            { name: "Trio 150" },
+                        ],
+                    },
                 ],
             },
-            {
-                name: "Adding and modifying elements",
-                subItems: [
-                    { name: "Walls" },
-                    { name: "Windows" },
-                    { name: "Doors" },
-                ],
-            },
-            {
-                name: "Interior",
-                subItems: [{ name: "Stairs and railings" }],
-            },
-            {
-                name: "Exterior",
-                subItems: [{ name: "Wall color" }, { name: "Roofing" }],
-            },
-            {
-                name: "Export",
-            },
+            { name: "Layout", subItems: [{ name: "Walls" }, { name: "Windows" }] },
+            { name: "Customize", subItems: [{ name: "Wall color" }, { name: "Roofing" }] },
+            { name: "Save/Export" },
         ],
-
-        // Currently selected items and configurations
-        selectedModel: null, // Selected house model (e.g., "Trio 120")
-        selectedConfiguration: {}, // Track all custom changes dynamically (key-value pairs)
+        selectedSeries: null,
+        selectedModel: null,
     }),
 
+
     actions: {
-        // Update the current step
+        // Handle step changes
         updateStep(step) {
             this.currentStep = step;
         },
 
-        // Set the selected 3D model
-        selectModel(model) {
-            this.selectedModel = model;
+        // Select a series
+        selectSeries(series) {
+            this.selectedSeries = series;
         },
 
-        // Update the configuration dynamically (e.g., adding windows)
-        updateConfiguration(key, value) {
-            this.selectedConfiguration[key] = value;
+        // Select a model
+        selectModel(model) {
+            this.selectedModel = model.name;
         },
     },
 });
