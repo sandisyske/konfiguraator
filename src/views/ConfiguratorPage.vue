@@ -51,12 +51,9 @@
       </div>
 
       <div v-else-if="currentStep === 1" class="step-content">
-
-        <!-- 3D Viewer Container -->
-        <div class="viewer-area">
-          <div ref="viewer" class="model-viewer"></div>
-        </div>
+        <div ref="viewer" class="model-viewer"></div>
       </div>
+
 
       <div v-else class="step-content">
         <p>Placeholder content for {{ steps[currentStep].name }}</p>
@@ -185,7 +182,7 @@ const initThreeJs = () => {
   // Load the model
   const loader = new GLTFLoader();
   loader.load(
-      "models/TRIO120/model.glb", // Ensure this path is correct
+      "public/models/TRIO150/model.glb", // Ensure this path is correct
       (gltf) => {
         model = gltf.scene;
 
@@ -244,8 +241,17 @@ import { nextTick } from 'vue'
 
 watch(currentStep, async (newStep) => {
   if (newStep === 1) {
-    await nextTick(); // oota kuni DOM on valmis
-    initThreeJs();
+    await nextTick();
+
+    const container = viewer.value;
+    if (container && container.offsetWidth > 0 && container.offsetHeight > 0) {
+      initThreeJs();
+    } else {
+      console.warn('Viewer not ready yet. Retrying...');
+      setTimeout(() => {
+        if (viewer.value) initThreeJs();
+      }, 100); // oota 100ms ja proovi uuesti
+    }
   }
 });
 
@@ -267,11 +273,19 @@ onMounted(() => {
 h2 {
   text-align: center;
 }
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden; /* Välista kogu lehe scroll */
+}
+
 /* Container for the whole configurator */
 .configurator-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 90vh; /* Võta kogu vaate kõrgus */
+  overflow: hidden; /* Välista config container scroll */
 }
 
 
@@ -327,11 +341,15 @@ h2 {
   color: #2a9d8f;
 }
 
-/* Step Content in 1st step */
+/* Step Content */
 .step-content {
-  padding-top: 5vh;
-  width: 100vh;
-
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Series Buttons Row */
@@ -400,31 +418,31 @@ h2 {
   border-color: #166028;
 }
 
-/* Main Content (3D Model) */
+
+/* Main Content */
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center; /* keskjoondus horisontaalselt */
-  justify-content: flex-start;
+  align-items: center;
+  padding-top: 80px; /* Stepper height */
+  padding-bottom: 100px; /* Toolbar height */
+  overflow: hidden; /* Välista main-content scroll */
   position: relative;
-  padding-top: 80px;
-  padding-bottom: 100px;
-  overflow: hidden;
 }
 
-/*3D model viewer*/
+/* 3D Canvas */
 .model-viewer {
   width: 100%;
-  height: 70vh; /* või midagi sobivamat, nt 600px */
+  height: 100%;
   background-color: #f0f0f0;
-  border: 1px solid #ccc;
   position: relative;
 }
 
 
 
-/* Toolbar (Fixed at Bottom) */
+
+/* Toolbar */
 .toolbar {
   position: fixed;
   bottom: 0;
@@ -435,6 +453,7 @@ h2 {
   padding: 10px 20px;
   background-color: #fff;
   border-top: 2px solid #ccc;
+  z-index: 10;
 }
 
 .toolbar button {
