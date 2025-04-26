@@ -153,7 +153,8 @@ const initThreeJs = () => {
   // Load the model
   const loader = new GLTFLoader();
   loader.load(
-      "public/models/TRIO150/model.glb", // Ensure this path is correct
+
+      import.meta.env.BASE_URL + 'models/TRIO150/model.glb',
       (gltf) => {
         model = gltf.scene;
 
