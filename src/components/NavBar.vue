@@ -61,10 +61,10 @@ const toggleEditing = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #ffffff; /* Green Background */
-  padding: 0.8rem 2rem;
+  background-color: #ffffff;
   color: white;
   height: 60px;
+  z-index: 5;
 }
 
 /* Left-Aligned Section Styling */

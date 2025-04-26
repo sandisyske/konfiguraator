@@ -2,19 +2,13 @@
   <div class="configurator-container">
 
     <!-- Stepper Navigation -->
-    <div class="stepper">
-      <div
-          v-for="(step, index) in steps"
-          :key="index"
-          class="step"
-          :class="{ active: index === currentStep, completed: index <= lastCompletedStep }"
-          @click="toggleStep(index)"
-      >
-        <span class="step-number">{{ index + 1 }}</span>
-        <span class="step-name">{{ step.name }}</span>
-        <span v-if="index < steps.length - 1" class="step-line"></span>
-      </div>
-    </div>
+    <!-- Stepper -->
+    <StepperComponent
+        :steps="steps"
+        :current-step="currentStep"
+        :last-completed-step="lastCompletedStep"
+        :on-toggle-step="toggleStep"
+    />
 
 
     <div class="main-content">
@@ -68,21 +62,12 @@
 
 
     <!-- Toolbar (fixed bottom) -->
-    <div class="toolbar">
-      <button
-          class="toolbar-btn back-btn"
-          :disabled="currentStep === 0"
-          @click="goToPreviousStep"
-      >
-        Back
-      </button>
-      <button
-          class="toolbar-btn next-btn"
-          @click="proceedToNextStep"
-      >
-        {{ isLastStep ? 'Save' : 'Next' }}
-      </button>
-    </div>
+    <ToolbarComponent
+        :current-step="currentStep"
+        :is-last-step="isLastStep"
+        :on-previous="goToPreviousStep"
+        :on-next="proceedToNextStep"
+    />
   </div>
 </template>
 
@@ -93,52 +78,38 @@
 import { onMounted, ref, watch } from "vue";
 import { computed } from "vue";
 import { useConfiguratorStore } from "@/store/configurator.js";
+import StepperComponent from '@/components/Stepper.vue';
+import ToolbarComponent from '@/components/Toolbar.vue';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 // Access the store from Pinia
 const store = useConfiguratorStore();
 
-// Computed properties to access Pinia store state
-const currentStep = computed(() => store.currentStep);
-const seriesItems = computed(() => store.menuItems[0].subItems); // Series for step 0
-const selectedSeries = computed(() => store.selectedSeries); // Selected series
-const selectedModel = computed(() => store.selectedModel); // Selected model
-
-// Helpers for navigation and actions
-const isLastStep = computed(() => store.currentStep === store.menuItems.length - 1);
-const canProceedToNextStep = computed(() =>
-    selectedSeries.value && (isLastStep.value || selectedModel.value)
-);
-
-// Actions for series and model selection
-const selectSeries = (series) => {
-  store.selectSeries(series); // Set selected series in store
-};
-
-const selectModel = (model) => {
-  store.selectModel(model); // Set selected model in store
-};
-
-// Navigation actions
-const goToPreviousStep = () => {
-  if (store.currentStep > 0) {
-    store.updateStep(store.currentStep - 1);
-  }
-};
-
+// Computed
 const steps = computed(() => store.menuItems);
-const activeMenu = computed(() => (currentStep.value !== null ? steps.value[currentStep.value] : null));
+const currentStep = computed(() => store.currentStep);
+const lastCompletedStep = computed(() => store.lastCompletedStep);
+const selectedSeries = computed(() => store.selectedSeries);
+const selectedModel = computed(() => store.selectedModel);
+const seriesItems = computed(() => store.menuItems[0]?.subItems || []);
+const isLastStep = computed(() => currentStep.value === store.menuItems.length - 1);
 
-
+// Actions
+const toggleStep = (index) => store.updateStep(index);
+const goToPreviousStep = () => {
+  if (store.currentStep > 0) store.updateStep(store.currentStep - 1);
+};
 const proceedToNextStep = () => {
   if (!isLastStep.value) {
-    store.updateStep(store.currentStep + 1);
+    store.updateStep(currentStep.value + 1);
   } else {
     console.log("Save configuration:", store.selectedSeries, store.selectedModel);
-    // Save logic to be implemented
   }
 };
+// Actions for series and model selection
+const selectSeries = (series) => store.selectSeries(series);
+const selectModel = (model) => store.selectModel(model);
 
 
 // Three.js variables
@@ -284,68 +255,24 @@ html, body {
 .configurator-container {
   display: flex;
   flex-direction: column;
-  height: 90vh; /* Võta kogu vaate kõrgus */
-  overflow: hidden; /* Välista config container scroll */
+  flex-grow: 1;
+  overflow: hidden;
 }
-
-
-/* Stepper Navigation (Aligned Left) */
-.stepper {
+/* Main Content */
+.main-content {
+  flex: 1;
   display: flex;
-  align-items: center;
-  background: #f8f8f8;
-  padding: 15px 0;
-  border-bottom: 2px solid #ddd;
-  padding-left: 20px; /* Aligns steps to the left */
-  position: fixed;
-  width: 100%;
-}
-.step {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  padding: 0 15px;
-}
-.step-number {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: gray;
-  color: white;
-  font-weight: bold;
-}
-.step-name {
-  margin-left: 8px;
-  color: gray;
-  font-weight: 500;
-}
-.step-line {
-  width: 40px;
-  height: 2px;
-  background: gray;
-  margin-left: 8px;
-}
-.step.active .step-number {
-  background: #4CAF50;
-}
-.step.active .step-name {
-  color: #4CAF50;
-}
-.step.completed .step-number {
-  background: #2a9d8f;
-}
-.step.completed .step-name {
-  color: #2a9d8f;
+  margin-top: 50px;
+  margin-bottom: 40px;
+  height: calc(100vh - 140px - 100px); /* Järelejäänud nähtav ala */
+  overflow: hidden; /* Välista main-content scroll */
+  position: relative;
 }
 
 /* Step Content */
 .step-content {
   flex: 1;
   width: 100%;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -361,8 +288,7 @@ html, body {
 }
 
 .series-box {
-  width: 150px;
-  /*height: 100px;*/
+  width: 50vh;
   padding: 10px;
   display: flex;
   align-items: center;
@@ -419,17 +345,7 @@ html, body {
 }
 
 
-/* Main Content */
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 80px; /* Stepper height */
-  padding-bottom: 100px; /* Toolbar height */
-  overflow: hidden; /* Välista main-content scroll */
-  position: relative;
-}
+
 
 /* 3D Canvas */
 .model-viewer {
@@ -442,49 +358,7 @@ html, body {
 
 
 
-/* Toolbar */
-.toolbar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 20px;
-  background-color: #fff;
-  border-top: 2px solid #ccc;
-  z-index: 10;
-}
 
-.toolbar button {
-  font-size: 16px;
-  width: 30vh;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.toolbar button.back-btn {
-  background-color: #f5f5f5;
-  color: #333;
-}
-
-.toolbar button.back-btn:disabled {
-  background-color: #eaeaea;
-  color: #999;
-  cursor: not-allowed;
-}
-
-.toolbar button.next-btn {
-  background-color: #28a745;
-  color: white;
-}
-
-.toolbar button.next-btn:disabled {
-  background-color: #cce5ff;
-  cursor: not-allowed;
-}
 
 /* Price Box Fixed at Bottom Right */
 .price-box {
