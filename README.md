@@ -1,35 +1,32 @@
 # konfiguraator
+Web based configurator to modify 3D houses
+
 https://sandisyske.github.io/konfiguraator/
 
-This template should help get you started developing with Vue 3 in Vite.
+---
 
-## Recommended IDE Setup
+## Versions
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **v0.1.0** – Esimene prototüüp, 3D mudel kuvatud, pole interaktiivne
+- **v0.2.0** – Mudelivalik võimalik, seina- ja akna paigutus
+- **v1.0.0** – Täisfunktsionaalne MVP, salvestamine ja eksportimine
 
-## Customize configuration
+---
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+## Setup and developement
 
-## Project Setup
-
-```sh
+```bash
 npm install
+npm install axios
+npm run dev
 ```
 
 ### Compile and Hot-Reload for Development
-
 ```sh
 npm run dev
 ```
 
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Deploy changes
+### Deploy changes to gh-pages
 ```sh
 npm run deploy
 ```
