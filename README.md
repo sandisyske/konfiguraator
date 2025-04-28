@@ -1,15 +1,14 @@
 # konfiguraator
-Web based configurator to modify 3D houses
+Web-based configurator to modify 3D houses
 
 https://sandisyske.github.io/konfiguraator/
 
 ---
 
 ## Versions
+- **v0.1.0** – Navigatsiooniriba ning canvase muudatused. Eemaldatud scroll konfiguraatori vaatest.
+- **v0.1.0** – Esimene prototüüp, 3D mudel kuvatud, interaktiivne, kuid pole võimalik konfigureerida muudatusi.
 
-- **v0.1.0** – Esimene prototüüp, 3D mudel kuvatud, pole interaktiivne
-- **v0.2.0** – Mudelivalik võimalik, seina- ja akna paigutus
-- **v1.0.0** – Täisfunktsionaalne MVP, salvestamine ja eksportimine
 
 ---
 
