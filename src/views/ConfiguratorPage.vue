@@ -44,14 +44,11 @@
         </div>
       </div>
 
-      <div v-else-if="currentStep === 1" class="step-content">
+      <div v-else-if="currentStep === 1 || currentStep === 2 || currentStep === 3" class="step-content">
         <div ref="viewer" class="model-viewer"></div>
       </div>
 
 
-      <div v-else class="step-content">
-        <p>Placeholder content for {{ steps[currentStep].name }}</p>
-      </div>
 
       <!-- Price Box (fixed bottom right corner) -->
       <div class="price-box">
@@ -82,6 +79,8 @@ import StepperComponent from '@/components/Stepper.vue';
 import ToolbarComponent from '@/components/Toolbar.vue';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
 
 // Access the store from Pinia
 const store = useConfiguratorStore();
@@ -114,7 +113,7 @@ const selectModel = (model) => store.selectModel(model);
 
 // Three.js variables
 const viewer = ref(null); // Reference to the viewer container
-let scene, camera, renderer, model, animationFrameId;
+let scene, camera, renderer, model, animationFrameId, controls;
 
 const initThreeJs = () => {
   const container = viewer.value;
@@ -130,9 +129,18 @@ const initThreeJs = () => {
 
   // Renderer setup
   renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setClearColor(0xffffff); // ← valge taust
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
   container.appendChild(renderer.domElement);
+
+  // Lisa OrbitControls
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.minPolarAngle = Math.PI / 4;  // 45°
+  controls.maxPolarAngle = Math.PI / 2;  // 90°
+
 
   // Lighting
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
@@ -143,12 +151,24 @@ const initThreeJs = () => {
   scene.add(directionalLight);
 
   // Ground
-  const groundGeometry = new THREE.PlaneGeometry(20, 20);
+  // Ringikujuline põrand
+  const textureLoader = new THREE.TextureLoader();
+  const alphaMap = textureLoader.load('public/textures/ground-fade.png');
+
+  const groundMaterial = new THREE.MeshStandardMaterial({
+    color: 0xeeeeee,
+    side: THREE.DoubleSide,
+    alphaMap: alphaMap,
+    transparent: true,
+  });
+
+  const groundGeometry = new THREE.CircleGeometry(15, 64);
   groundGeometry.rotateX(-Math.PI / 2);
-  const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x999999, side: THREE.DoubleSide });
 
   const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
   scene.add(groundMesh);
+
+
 
   // Load the model
   const loader = new GLTFLoader();
@@ -176,17 +196,16 @@ const initThreeJs = () => {
         // Adjust the model's position within the pivot group
         model.position.set(-center.x, -box.min.y, -center.z);
 
-        // Rotation will now occur around the pivot group center
-        console.log("Model scaled and centered for rotation:", model.scale, model.position);
+
 
         // Add animation to rotate the pivot (not the model directly)
-        const customAnimate = () => {
-          requestAnimationFrame(customAnimate);
-          pivot.rotation.y += 0.005; // Adjust the rotation speed as necessary
-          renderer.render(scene, camera);
-        };
+        //const customAnimate = () => {
+        //  requestAnimationFrame(customAnimate);
+        //  pivot.rotation.y += 0.005; // Adjust the rotation speed as necessary
+        //  renderer.render(scene, camera);
+        //};
 
-        customAnimate();
+        //customAnimate();
 
         animate();
       },
@@ -204,27 +223,43 @@ const initThreeJs = () => {
 const animate = () => {
   animationFrameId = requestAnimationFrame(animate);
 
+  controls?.update(); // ← Väga tähtis!
   renderer.render(scene, camera);
 };
+
 
 // Watcher: Initialize Three.js when entering step 2
 import { nextTick } from 'vue'
 
 watch(currentStep, async (newStep) => {
-  if (newStep === 1) {
-    await nextTick();
+  await nextTick();
 
-    const container = viewer.value;
-    if (container && container.offsetWidth > 0 && container.offsetHeight > 0) {
+  if ((newStep === 1 || newStep === 2 || newStep === 3) && !renderer) {
+    if (viewer.value) {
       initThreeJs();
-    } else {
-      console.warn('Viewer not ready yet. Retrying...');
-      setTimeout(() => {
-        if (viewer.value) initThreeJs();
-      }, 100); // oota 100ms ja proovi uuesti
+    }
+  }
+
+  if (controls && camera) {
+    if (newStep === 1) {
+      // Layout - 2D ülaltvaade
+      controls.enableRotate = true;
+      controls.minPolarAngle = Math.PI / 2;
+      controls.maxPolarAngle = Math.PI / 2;
+      camera.position.set(0, 20, 0);
+      camera.lookAt(0, 0, 0);
+    } else if (newStep === 2 || newStep === 3) {
+      // Customize ja Export - 3D vaade
+      controls.enableRotate = true;
+      controls.minPolarAngle = Math.PI / 4;
+      controls.maxPolarAngle = Math.PI / 2;
+      camera.position.set(4, 5, 11);
+      camera.lookAt(0, 0, 0);
     }
   }
 });
+
+
 
 
 // Ensure Three.js is initialized on step 2 if component is mounted directly
