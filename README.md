@@ -17,6 +17,7 @@ https://sandisyske.github.io/konfiguraator/
 ```bash
 npm install
 npm install axios
+npm install gsap
 npm run dev
 ```
 

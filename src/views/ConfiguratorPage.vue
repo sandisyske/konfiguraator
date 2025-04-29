@@ -72,14 +72,18 @@
 
 
 <script setup>
+// vue components and store
 import { onMounted, ref, watch } from "vue";
 import { computed } from "vue";
 import { useConfiguratorStore } from "@/store/configurator.js";
 import StepperComponent from '@/components/Stepper.vue';
 import ToolbarComponent from '@/components/Toolbar.vue';
+// model and rendering
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { gsap } from "gsap";
+
 
 
 // Access the store from Pinia
@@ -113,7 +117,10 @@ const selectModel = (model) => store.selectModel(model);
 
 // Three.js variables
 const viewer = ref(null); // Reference to the viewer container
-let scene, camera, renderer, model, animationFrameId, controls;
+let scene, perspectiveCamera, orthoCamera, renderer, model, pivot, animationFrameId, controls, clippingPlane;
+let activeCamera; // ← uus muutja
+
+
 
 const initThreeJs = () => {
   const container = viewer.value;
@@ -123,9 +130,26 @@ const initThreeJs = () => {
   scene = new THREE.Scene();
 
   // Camera setup
-  const aspectRatio = container.clientWidth / container.clientHeight;
-  camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000);
-  camera.position.set(4, 5, 11);
+  const aspect = container.clientWidth / container.clientHeight;
+// PerspectiveCamera (3D jaoks)
+  perspectiveCamera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+  perspectiveCamera.position.set(4, 5, 11);
+
+  // OrthographicCamera (2D jaoks)
+  const frustumSize = 20; // Suurenda/vähenda vastavalt maja suurusele
+  orthoCamera = new THREE.OrthographicCamera(
+      frustumSize * aspect / -2,
+      frustumSize * aspect / 2,
+      frustumSize / 2,
+      frustumSize / -2,
+      0.1,
+      1000
+
+  );
+  //orthoCamera.position.set(0, 20, 0);
+  //orthoCamera.lookAt(0, 0, 0);
+
+  activeCamera = perspectiveCamera; // ← vaikimisi perspectiveCamera
 
   // Renderer setup
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -135,10 +159,13 @@ const initThreeJs = () => {
   container.appendChild(renderer.domElement);
 
   // Lisa OrbitControls
-  controls = new OrbitControls(camera, renderer.domElement);
+  controls = new OrbitControls(activeCamera, renderer.domElement);
+
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
-  controls.minPolarAngle = Math.PI / 4;  // 45°
+
+  //SOMETHINGHAPPENING
+  //controls.minPolarAngle = Math.PI / 4;  // 45°
   controls.maxPolarAngle = Math.PI / 2;  // 90°
 
 
@@ -153,7 +180,7 @@ const initThreeJs = () => {
   // Ground
   // Ringikujuline põrand
   const textureLoader = new THREE.TextureLoader();
-  const alphaMap = textureLoader.load('public/textures/ground-fade.png');
+  const alphaMap = textureLoader.load(import.meta.env.BASE_URL + 'textures/ground-fade.png');
 
   const groundMaterial = new THREE.MeshStandardMaterial({
     color: 0xeeeeee,
@@ -161,14 +188,13 @@ const initThreeJs = () => {
     alphaMap: alphaMap,
     transparent: true,
   });
-
   const groundGeometry = new THREE.CircleGeometry(15, 64);
   groundGeometry.rotateX(-Math.PI / 2);
-
   const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
   scene.add(groundMesh);
 
-
+// Clipping planes
+  clippingPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1.5);
 
   // Load the model
   const loader = new GLTFLoader();
@@ -179,13 +205,13 @@ const initThreeJs = () => {
         model = gltf.scene;
 
         // Create a group for proper center rotation
-        const pivot = new THREE.Group();
+        pivot = new THREE.Group();
         scene.add(pivot);
 
         // Add model to the pivot group
         pivot.add(model);
 
-        // Scale the model up (e.g., 2x its current size)
+        // Scale the model up
         const scaleFactor = 0.5; // Adjust this value based on your needs
         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
@@ -196,17 +222,6 @@ const initThreeJs = () => {
 
         // Adjust the model's position within the pivot group
         model.position.set(-center.x, -box.min.y, -center.z);
-
-
-
-        // Add animation to rotate the pivot (not the model directly)
-        //const customAnimate = () => {
-        //  requestAnimationFrame(customAnimate);
-        //  pivot.rotation.y += 0.005; // Adjust the rotation speed as necessary
-        //  renderer.render(scene, camera);
-        //};
-
-        //customAnimate();
 
         animate();
       },
@@ -225,7 +240,9 @@ const animate = () => {
   animationFrameId = requestAnimationFrame(animate);
 
   controls?.update(); // ← Väga tähtis!
-  renderer.render(scene, camera);
+  renderer.render(scene, activeCamera);
+  renderer.localClippingEnabled = true;
+
 };
 
 
@@ -241,26 +258,117 @@ watch(currentStep, async (newStep) => {
     }
   }
 
-  if (controls && camera) {
-    if (newStep === 1) {
-      // Layout - 2D ülaltvaade
+  if (controls && activeCamera) {
+    if (newStep === 1) { // Step 1 (Layout 2D)
+
+      activeCamera = orthoCamera;
+      controls.object = activeCamera;
+      controls.update();
+
+      //  Lubame ainult vasak-parem pööramise
       controls.enableRotate = true;
-      controls.minPolarAngle = Math.PI / 2;
+      //controls.minPolarAngle = Math.PI / 2;
       controls.maxPolarAngle = Math.PI / 2;
-      camera.position.set(0, 20, 0);
-      camera.lookAt(0, 0, 0);
-    } else if (newStep === 2 || newStep === 3) {
-      // Customize ja Export - 3D vaade
+      controls.minAzimuthAngle = -Infinity; // vasak-parem vaba pööramine
+      controls.maxAzimuthAngle = Infinity;
+
+      //  AzimuthalAngle (vasakule-paremale pööramine) on lubatud
+      //  PolarAngle (üles-alla pööramine) on lukustatud 90° peale
+
+      //controls.enablePan = true;  // lubame panningut vajadusel
+      controls.enableZoom = true;
+      controls.minZoom = 0.5;
+      controls.maxZoom = 2;
+
+      // Ära unusta lõikamist aktiveerida
+      renderer.clippingPlanes = [clippingPlane];
+
+
+      if (pivot) {
+        pivot.rotation.set(0, 0, 0);
+        activeCamera.position.set(0, 80, 0); // ortho vaade otse ülevalt
+        activeCamera.lookAt(0, 80, 0);
+      }
+
+
+      const targetPos = new THREE.Vector3(0, 80, 0);
+      gsap.to(activeCamera.position, {
+        x: targetPos.x,
+        y: targetPos.y,
+        z: targetPos.z,
+        duration: 1,
+        ease: "power2.inOut",
+        onUpdate: () => activeCamera.lookAt(0, 80, 0),
+      });
+
+    } else if (newStep === 2) { // Customize
+
+      activeCamera = perspectiveCamera;
+      controls.object = activeCamera;
+      controls.update();
+
       controls.enableRotate = true;
       controls.minPolarAngle = Math.PI / 4;
-      controls.maxPolarAngle = Math.PI / 2;
-      camera.position.set(4, 5, 11);
-      camera.lookAt(0, 0, 0);
+      controls.maxPolarAngle = Math.PI / 2.2;
+      controls.minDistance = 7;
+      controls.maxDistance = 15;
+      renderer.clippingPlanes = [];
+
+
+      const targetPos = new THREE.Vector3(4, 5, 11);
+      smoothCameraMoveWithTween(targetPos, 1);
+
+
+    } else if (newStep === 3) { // Save/Export
+      controls.enableRotate = true;
+      controls.minPolarAngle = Math.PI / 4;
+      controls.maxPolarAngle = Math.PI / 2.2;
+      controls.minDistance = 7;
+      controls.maxDistance = 15;
+      renderer.clippingPlanes = [];
+
+
+      // ← ÄRA liiguta kaamerat! Jäta samasse asendisse.
     }
   }
+
+
 });
 
+// Animated camera
 
+const smoothCameraMoveWithTween = (targetPosition, duration = 1) => {
+  gsap.to(activeCamera.position, {
+    x: targetPosition.x,
+    y: targetPosition.y,
+    z: targetPosition.z,
+    duration: duration,
+    ease: "power2.inOut", // ← Sujuv kiirendus ja aeglustus
+    onUpdate: () => {
+      activeCamera.lookAt(0, 0, 0); // Et kaamera jääks keskenduma mudelile
+    },
+  });
+};
+
+// Sujuv kaamera liikumine
+const smoothCameraMove = (targetPosition, duration = 1) => {
+  const startPosition = activeCamera.position.clone();
+  const startTime = performance.now();
+
+  const animateMove = (now) => {
+    const elapsed = (now - startTime) / 1000;
+    const t = Math.min(elapsed / duration, 1); // clamp t between 0 and 1
+
+    activeCamera.position.lerpVectors(startPosition, targetPosition, t);
+    activeCamera.lookAt(0, 0, 0);
+
+    if (t < 1) {
+      requestAnimationFrame(animateMove);
+    }
+  };
+
+  requestAnimationFrame(animateMove);
+};
 
 
 // Ensure Three.js is initialized on step 2 if component is mounted directly
