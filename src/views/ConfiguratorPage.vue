@@ -14,34 +14,46 @@
     <div class="main-content">
       <!-- Step 1: Series and Model Selection -->
       <div v-if="currentStep === 0" class="step-content">
-        <h2>Select Your House Series</h2>
+        <h2>Select Your House Plan</h2>
 
         <!-- Show series selection -->
-        <div v-if="!selectedSeries" class="series-buttons-row">
+        <!-- Series selection with images and descriptions -->
+        <div v-if="!selectedSeries" class="series-card-row">
           <div
               v-for="series in seriesItems"
               :key="series.name"
-              class="series-box"
+              class="series-card"
               @click="selectSeries(series)"
           >
-            <h3>{{ series.name }}</h3>
+            <img class="series-img" :src="getSeriesImagePath(series.name)" alt="Series image" />
+            <h3>{{ series.name.toUpperCase() }}</h3>
+            <p>{{ getSeriesDescription(series.name) }}</p>
           </div>
         </div>
 
+
+
         <!-- Show the models of the selected series -->
-        <div v-else class="models-row">
-          <h3>Available Models in {{ selectedSeries.name }}</h3>
-          <div class="models-container">
-            <button
-                v-for="model in selectedSeries.subItems"
-                :key="model.name"
-                :class="{ selected: selectedModel === model.name }"
-                @click="selectModel(model)"
-            >
-              {{ model.name }}
-            </button>
+        <div v-else class="model-card-row">
+          <div
+              v-for="model in selectedSeries.subItems"
+              :key="model.name"
+              class="model-card"
+              :class="{ selected: selectedModel === model.name }"
+              @click="selectModel(model)"
+          >
+            <img class="model-img" :src="getImagePath(model.image)" alt="Model image" />
+            <h3>{{ model.name.toUpperCase() }}</h3>
+            <p>{{ model.description }}</p>
+            <ul class="model-info">
+              <li><strong>Floor area:</strong> {{ model.variables.floorArea }}</li>
+              <li><strong>Bedrooms:</strong> {{ model.variables.bedrooms }}</li>
+              <li><strong>Bathrooms:</strong> {{ model.variables.bathrooms }}</li>
+              <li><strong>Starting price:</strong> €{{ model.variables.price.toLocaleString() }}</li>
+            </ul>
           </div>
         </div>
+
       </div>
 
       <div v-else-if="currentStep === 1 || currentStep === 2 || currentStep === 3" class="step-content">
@@ -59,12 +71,20 @@
 
 
     <!-- Toolbar (fixed bottom) -->
-    <ToolbarComponent
-        :current-step="currentStep"
-        :is-last-step="isLastStep"
-        :on-previous="goToPreviousStep"
-        :on-next="proceedToNextStep"
-    />
+    <div class="toolbar-overlay">
+      <ToolbarComponent
+          :current-step="currentStep"
+          :is-last-step="isLastStep"
+          :on-previous="goToPreviousStep"
+          :on-next="proceedToNextStep"
+          :can-go-back="canGoBack"
+          :can-go-next="canGoNext"
+      />
+    </div>
+
+
+
+
   </div>
 </template>
 
@@ -92,24 +112,51 @@ const store = useConfiguratorStore();
 // Computed
 const steps = computed(() => store.menuItems);
 const currentStep = computed(() => store.currentStep);
-const lastCompletedStep = computed(() => store.lastCompletedStep);
 const selectedSeries = computed(() => store.selectedSeries);
 const selectedModel = computed(() => store.selectedModel);
-const seriesItems = computed(() => store.menuItems[0]?.subItems || []);
 const isLastStep = computed(() => currentStep.value === store.menuItems.length - 1);
+const seriesItems = computed(() => store.menuItems[0]?.subItems || []);
 
 // Actions
 const toggleStep = (index) => store.updateStep(index);
+
+// Dynamic toolbar logic
+const canGoBack = computed(() => {
+  return (
+      currentStep.value === 0 && (selectedSeries.value || selectedModel.value)
+  ) || currentStep.value > 0;
+});
+
+const canGoNext = computed(() => {
+  return (
+      (currentStep.value === 0 && selectedModel.value) ||
+      (currentStep.value > 0 && currentStep.value < steps.value.length - 1)
+  );
+});
+
+// Navigation functions
 const goToPreviousStep = () => {
-  if (store.currentStep > 0) store.updateStep(store.currentStep - 1);
-};
-const proceedToNextStep = () => {
-  if (!isLastStep.value) {
-    store.updateStep(currentStep.value + 1);
+  if (currentStep.value === 0) {
+    if (selectedModel.value) {
+      store.selectModel(null);
+    } else if (selectedSeries.value) {
+      store.selectSeries(null);
+    }
   } else {
-    console.log("Save configuration:", store.selectedSeries, store.selectedModel);
+    store.updateStep(currentStep.value - 1);
   }
 };
+
+const proceedToNextStep = () => {
+  if (currentStep.value === 0 && selectedModel.value) {
+    store.updateStep(1);
+  } else if (currentStep.value < steps.value.length - 1) {
+    store.updateStep(currentStep.value + 1);
+  }
+};
+
+
+
 // Actions for series and model selection
 const selectSeries = (series) => store.selectSeries(series);
 const selectModel = (model) => store.selectModel(model);
@@ -378,6 +425,34 @@ onMounted(() => {
   }
 });
 
+// funktsioonid seeriatele ja mudelitele
+
+
+const getSeriesDescription = (seriesName) => {
+  switch (seriesName) {
+    case "Solo+":
+      return "Micro houses with 1 fully functional floor and loft. Suitable for garden houses, AirBnB unit, sauna.";
+    case "Duo":
+      return "Smaller houses with 1 fully functional floor and bigger loft. Great for starter homes or AirBnB.";
+    case "Trio":
+      return "Two fully functional floors. Suitable for family homes and year-round use.";
+    default:
+      return "";
+  }
+};
+
+const getSeriesImagePath = (seriesName) => {
+  const fileName = seriesName.toLowerCase() + '.png';
+  //.replace(/\s+/g, '-')
+  return import.meta.env.BASE_URL + 'images/' + fileName;
+};
+const getImagePath = (fileName) => {
+  return import.meta.env.BASE_URL + "images/" + fileName;
+};
+
+
+
+
 </script>
 
 
@@ -392,7 +467,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden; /* Välista kogu lehe scroll */
+  overflow: hidden;
 }
 
 /* Container for the whole configurator */
@@ -407,8 +482,7 @@ html, body {
   flex: 1;
   display: flex;
   margin-top: 50px;
-  margin-bottom: 40px;
-  height: calc(100vh - 140px - 100px); /* Järelejäänud nähtav ala */
+  height: calc(100vh - 140px); /* Järelejäänud nähtav ala */
   overflow: hidden; /* Välista main-content scroll */
   position: relative;
 }
@@ -423,50 +497,98 @@ html, body {
   justify-content: center;
 }
 
-/* Series Buttons Row */
-.series-buttons-row {
+
+.series-card-row {
   display: flex;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 15px; /* Space between buttons */
-  justify-content: center;
+  gap: 2rem;
+  padding: 2rem;
 }
 
-.series-box {
-  width: 50vh;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.series-card {
+  width: 280px;
+  background-color: #fff;
   border: 2px solid #ddd;
-  border-radius: 8px;
-  background-color: #f9f9f9;
+  border-radius: 10px;
+  text-align: center;
+  padding: 1rem;
+  box-shadow: 0 0 10px rgba(0,0,0,0.05);
+  transition: transform 0.3s, border-color 0.3s;
   cursor: pointer;
-  transition: background-color 0.3s, border-color 0.3s;
 }
 
-.series-box:hover {
-  background-color: #e6e6e6;
+.series-card:hover {
+  transform: scale(1.03);
+  border-color: #28a745;
 }
 
-.series-box.selected {
-  background-color: #28a745;
-  color: green;
-  border-color: #166028;
+.series-img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 1rem;
 }
+
+
+
+.model-card-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+.model-card {
+  width: 280px;
+  background-color: #fff;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  text-align: center;
+  padding: 1rem;
+  box-shadow: 0 0 10px rgba(0,0,0,0.05);
+  transition: transform 0.3s, border-color 0.3s;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.model-card:hover {
+  transform: scale(1.03);
+  border-color: #28a745;
+}
+
+.model-img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.model-info {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.model-info li {
+  margin-bottom: 0.5rem;
+}
+
+.model-card.selected {
+  border-color: #28a745;
+  box-shadow: 0 0 15px rgba(40, 167, 69, 0.4);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
 
 /* Models Row */
-.models-row {
-  margin-top: 20px;
-  text-align: center;
-}
 
-.models-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px; /* Space between buttons */
-  justify-content: center;
-  margin-top: 10px;
-}
 
 .models-container button {
   padding: 10px 15px;
@@ -493,6 +615,7 @@ html, body {
 
 /* 3D Canvas */
 .model-viewer {
+  margin-top: 1.4rem;
   width: 100%;
   height: 100%;
   background-color: #f0f0f0;
@@ -522,5 +645,21 @@ html, body {
   color: white;
   cursor: pointer;
 }
+.toolbar-overlay {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  padding: 1rem;
+  display: flex;
+  justify-content: flex-end;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.toolbar-overlay .btn {
+  pointer-events: auto;
+}
+
+
 
 </style>

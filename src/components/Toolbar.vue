@@ -1,17 +1,25 @@
 <template>
   <div class="toolbar">
     <button
-        class="toolbar-btn back-btn"
-        :disabled="currentStep === 0"
+        v-if="canGoBack"
+        class="btn secondary"
         @click="onPrevious"
     >
       Back
     </button>
     <button
-        class="toolbar-btn next-btn"
+        v-if="canGoNext && !isLastStep"
+        class="btn primary"
         @click="onNext"
     >
-      {{ isLastStep ? 'Save' : 'Next' }}
+      Next
+    </button>
+    <button
+        v-if="isLastStep"
+        class="btn primary"
+        @click="onNext"
+    >
+      Save
     </button>
   </div>
 </template>
@@ -21,36 +29,58 @@ defineProps({
   currentStep: Number,
   isLastStep: Boolean,
   onPrevious: Function,
-  onNext: Function
+  onNext: Function,
+  canGoBack: Boolean,
+  canGoNext: Boolean
 });
 </script>
 
 <style scoped>
 .toolbar {
-  position: fixed;
-  bottom: 0;
-  height: 40px;
-  width: 100%;
   display: flex;
-  justify-content: space-between;
-  padding: 10px 20px;
-  background: white;
-  border-top: 2px solid #ccc;
-  z-index: 5;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+
+  pointer-events: auto; /* ← vajalik, sest parentil on pointer-events: none */
 }
-.toolbar-btn {
-  padding: 10px 20px;
-  font-size: 16px;
-  border-radius: 5px;
-  border: none;
+
+
+/* Basic button style */
+.btn {
+  padding: 0.6rem 1.4rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 2px solid transparent;
   cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  min-width: 220px; /* kindel laius */
+  text-align: center;
 }
-.back-btn {
-  background: #f5f5f5;
-  color: #333;
-}
-.next-btn {
-  background: #28a745;
+/* Primary (Next / Save) */
+.primary {
+  background-color: #28a745;
   color: white;
+  border: 2px solid #28a745;
+}
+
+.primary:hover {
+  background-color: #218838;
+  border-color: #218838;
+}
+
+/* Secondary (Back) */
+.secondary {
+  background-color: white;
+  color: #333;
+  border: 2px solid #ccc;
+}
+
+.secondary:hover {
+  background-color: #f5f5f5;
+  border-color: #aaa;
 }
 </style>

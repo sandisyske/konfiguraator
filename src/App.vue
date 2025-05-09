@@ -14,6 +14,7 @@ html, body, #app {
   height: 100%;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
 }
 
 .app-layout {
@@ -21,4 +22,11 @@ html, body, #app {
   flex-direction: column;
   height: 100vh;
 }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 </style>
