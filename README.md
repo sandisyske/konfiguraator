@@ -6,7 +6,7 @@ https://sandisyske.github.io/konfiguraator/
 ---
 
 ## Versions
-- **v0.1.1** – Navigatsiooniriba ning canvase muudatused. Eemaldatud scroll konfiguraatori vaatest.
+- **v0.0.1** – Navigatsiooniriba ning canvase muudatused. Eemaldatud scroll konfiguraatori vaatest.
 - **v0.1.0** – Esimene prototüüp, 3D mudel kuvatud, interaktiivne, kuid pole võimalik konfigureerida muudatusi.
 - **v0.1.1** – Muudetud maja mudeli valikun menüüd, lisatud font ja dünaamiline hinna funktisoon
 
