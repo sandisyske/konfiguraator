@@ -189,6 +189,7 @@ export const useConfiguratorStore = defineStore("configurator", {
         ],
         selectedSeries: null,
         selectedModel: null,
+        addedFeatures: [],
     }),
 
 
@@ -208,5 +209,17 @@ export const useConfiguratorStore = defineStore("configurator", {
         selectModel(model) {
             this.selectedModel = model ? model.name : null;
         },
+        addFeature(feature) {
+            this.addedFeatures.push(feature);
+        },
+
+        removeFeature(featureName) {
+            this.addedFeatures = this.addedFeatures.filter(f => f.name !== featureName);
+        },
+
+        clearFeatures() {
+            this.addedFeatures = [];
+        }
+
     },
 });

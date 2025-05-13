@@ -41,8 +41,9 @@ defineProps({
   padding: 0 15px;
 }
 .step-number {
-  width: 5vh;
-  height: 5vh;
+  width: 2.5em;
+  height: 2.5em;
+  font-size: 1em;
   border-radius: 50%;
   margin-right: 10px;
   display: flex;

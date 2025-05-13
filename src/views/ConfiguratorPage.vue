@@ -63,10 +63,13 @@
 
 
       <!-- Price Box (fixed bottom right corner) -->
-      <div class="price-box">
-        <p>Price: <strong>€21,000</strong></p>
-        <button class="details-btn">Show Details</button>
-      </div>
+      <Transition name="price-box">
+        <div v-if="currentStep > 0" class="price-box">
+          <p>Price: <strong>€{{ totalPrice.toLocaleString() }}</strong></p>
+          <button class="details-btn">Show Details</button>
+        </div>
+      </Transition>
+
     </div>
 
 
@@ -286,7 +289,7 @@ const initThreeJs = () => {
 const animate = () => {
   animationFrameId = requestAnimationFrame(animate);
 
-  controls?.update(); // ← Väga tähtis!
+  controls?.update();
   renderer.render(scene, activeCamera);
   renderer.localClippingEnabled = true;
 
@@ -450,6 +453,16 @@ const getImagePath = (fileName) => {
   return import.meta.env.BASE_URL + "images/" + fileName;
 };
 
+// Price boxi funktsioonid
+const totalPrice = computed(() => {
+  const basePrice = selectedSeries.value?.subItems?.find(
+      (model) => model.name === selectedModel.value
+  )?.variables?.price || 0;
+
+  const featurePrice = store.addedFeatures.reduce((sum, feature) => sum + (feature.price || 0), 0);
+
+  return basePrice + featurePrice;
+});
 
 
 
@@ -476,12 +489,13 @@ html, body {
   flex-direction: column;
   flex-grow: 1;
   overflow: hidden;
+  position: relative;
 }
 /* Main Content */
 .main-content {
   flex: 1;
   display: flex;
-  margin-top: 50px;
+  margin-top: 35px;
   height: calc(100vh - 140px); /* Järelejäänud nähtav ala */
   overflow: hidden; /* Välista main-content scroll */
   position: relative;
@@ -627,7 +641,7 @@ html, body {
 
 
 
-/* Price Box Fixed at Bottom Right */
+/* Price Box Fixed at Bottom Right
 .price-box {
   position: fixed;
   bottom: 7vh;
@@ -636,7 +650,29 @@ html, body {
   padding: 1rem;
   border-radius: 5px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}*/
+.price-box {
+  position: absolute; /* ← vaheta fixed välja */
+  right: 20px;
+  bottom: 90px; /* ↑ et jääks Toolbarist kõrgemale */
+  z-index: 11; /* peab olema suurem kui canvas */
+  background: white;
+  padding: 1rem;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
 }
+
+
+.price-box-enter-active,
+.price-box-leave-active {
+  transition: opacity 0.4s ease;
+}
+.price-box-enter-from,
+.price-box-leave-to {
+  opacity: 0;
+}
+
 .details-btn {
   margin-top: 10px;
   padding: 0.5rem 1rem;
