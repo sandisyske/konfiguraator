@@ -6,7 +6,7 @@
     <StepperComponent
         :steps="steps"
         :current-step="currentStep"
-        :last-completed-step="lastCompletedStep"
+        :last-completed-step="0"
         :on-toggle-step="toggleStep"
     />
 
@@ -57,6 +57,13 @@
       </div>
 
       <div v-else-if="currentStep === 1 || currentStep === 2 || currentStep === 3" class="step-content">
+        <!-- Layout step floating menu -->
+        <div v-if="currentStep === 1" class="layout-menu">
+          <h3>Floor Plan View</h3>
+          <button @click="switchFloor('FLOOR1')">Show Floor 1</button>
+          <button @click="switchFloor('FLOOR2')">Show Floor 2</button>
+        </div>
+
         <div ref="viewer" class="model-viewer"></div>
       </div>
 
@@ -106,6 +113,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { gsap } from "gsap";
+// Layout and customize
+import {setFloorPlanView, toggleVisibility} from '../logic/customizeController.js';
 
 
 
@@ -123,7 +132,9 @@ const seriesItems = computed(() => store.menuItems[0]?.subItems || []);
 // Actions
 const toggleStep = (index) => store.updateStep(index);
 
-// Dynamic toolbar logic
+// Dynamic toolbar logic // Annab errorid
+// [Vue warn]: Invalid prop: type check failed for prop "canGoNext". Expected Boolean, got String with value "Trio 150".
+// [Vue warn]: Invalid prop: type check failed for prop "canGoBack". Expected Boolean, got Object
 const canGoBack = computed(() => {
   return (
       currentStep.value === 0 && (selectedSeries.value || selectedModel.value)
@@ -167,7 +178,7 @@ const selectModel = (model) => store.selectModel(model);
 
 // Three.js variables
 const viewer = ref(null); // Reference to the viewer container
-let scene, perspectiveCamera, orthoCamera, renderer, model, pivot, animationFrameId, controls, clippingPlane;
+let scene, perspectiveCamera, renderer, model, pivot, animationFrameId, controls;
 let activeCamera; // ← uus muutja
 
 
@@ -185,19 +196,6 @@ const initThreeJs = () => {
   perspectiveCamera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
   perspectiveCamera.position.set(4, 5, 11);
 
-  // OrthographicCamera (2D jaoks)
-  const frustumSize = 20; // Suurenda/vähenda vastavalt maja suurusele
-  orthoCamera = new THREE.OrthographicCamera(
-      frustumSize * aspect / -2,
-      frustumSize * aspect / 2,
-      frustumSize / 2,
-      frustumSize / -2,
-      0.1,
-      1000
-
-  );
-  //orthoCamera.position.set(0, 20, 0);
-  //orthoCamera.lookAt(0, 0, 0);
 
   activeCamera = perspectiveCamera; // ← vaikimisi perspectiveCamera
 
@@ -214,8 +212,6 @@ const initThreeJs = () => {
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
 
-  //SOMETHINGHAPPENING
-  //controls.minPolarAngle = Math.PI / 4;  // 45°
   controls.maxPolarAngle = Math.PI / 2;  // 90°
 
 
@@ -238,13 +234,14 @@ const initThreeJs = () => {
     alphaMap: alphaMap,
     transparent: true,
   });
+
+
   const groundGeometry = new THREE.CircleGeometry(15, 64);
   groundGeometry.rotateX(-Math.PI / 2);
   const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
   scene.add(groundMesh);
 
-// Clipping planes
-  clippingPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1.5);
+
 
   // Load the model
   const loader = new GLTFLoader();
@@ -262,7 +259,7 @@ const initThreeJs = () => {
         pivot.add(model);
 
         // Scale the model up
-        const scaleFactor = 0.5; // Adjust this value based on your needs
+        const scaleFactor = 0.7; // Adjust this value based on your needs
         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
         // Center the model on the plane
@@ -291,6 +288,7 @@ const animate = () => {
 
   controls?.update();
   renderer.render(scene, activeCamera);
+
   renderer.localClippingEnabled = true;
 
 };
@@ -302,86 +300,73 @@ import { nextTick } from 'vue'
 watch(currentStep, async (newStep) => {
   await nextTick();
 
-  if ((newStep === 1 || newStep === 2 || newStep === 3) && !renderer) {
-    if (viewer.value) {
+
+
+  if ((newStep === 1 || newStep === 2 || newStep === 3)) {
+    if (!renderer && viewer.value) {
       initThreeJs();
+      await nextTick();
+
     }
   }
 
-  if (controls && activeCamera) {
+  console.log("Switched to camera:", activeCamera?.type || "undefined"); // camera check
+
+
+  if (!controls || !activeCamera) return;
+
+  //controls.reset();
+
+
+  // Common to all steps
+  controls.object = perspectiveCamera;
+  activeCamera = perspectiveCamera;
+  controls.update();
+
+
+  // Default reset
+  controls.enableRotate = true;
+  controls.enablePan = true;
+  controls.enableZoom = true;
+  controls.minPolarAngle = 0;
+  controls.maxPolarAngle = Math.PI;
+  controls.minDistance = 0;
+  controls.maxDistance = 100;
+
+
     if (newStep === 1) { // Step 1 (Layout 2D)
 
-      activeCamera = orthoCamera;
-      controls.object = activeCamera;
-      controls.update();
-
-      //  Lubame ainult vasak-parem pööramise
-      controls.enableRotate = true;
-      //controls.minPolarAngle = Math.PI / 2;
-      controls.maxPolarAngle = Math.PI / 2;
-      controls.minAzimuthAngle = -Infinity; // vasak-parem vaba pööramine
-      controls.maxAzimuthAngle = Infinity;
-
-      //  AzimuthalAngle (vasakule-paremale pööramine) on lubatud
-      //  PolarAngle (üles-alla pööramine) on lukustatud 90° peale
-
-      //controls.enablePan = true;  // lubame panningut vajadusel
-      controls.enableZoom = true;
+      // Top-down layout view
+      controls.maxPolarAngle = Math.PI / 2.2;
+      controls.enablePan = false;
       controls.minZoom = 0.5;
       controls.maxZoom = 2;
 
-      // Ära unusta lõikamist aktiveerida
-      renderer.clippingPlanes = [clippingPlane];
 
 
-      if (pivot) {
-        pivot.rotation.set(0, 0, 0);
-        activeCamera.position.set(0, 80, 0); // ortho vaade otse ülevalt
-        activeCamera.lookAt(0, 80, 0);
-      }
+      const topDownPos = new THREE.Vector3(0, 13, 3);
+      smoothCameraMoveWithTween(topDownPos, 1);
 
+      if (pivot) pivot.rotation.set(0, 0, 0);
 
-      const targetPos = new THREE.Vector3(0, 80, 0);
-      gsap.to(activeCamera.position, {
-        x: targetPos.x,
-        y: targetPos.y,
-        z: targetPos.z,
-        duration: 1,
-        ease: "power2.inOut",
-        onUpdate: () => activeCamera.lookAt(0, 80, 0),
-      });
+  } else if (newStep === 2) { // Customize view
+      controls.maxPolarAngle = Math.PI / 2.2;
+      controls.minDistance = 7;
+      controls.maxDistance = 15;
 
-    } else if (newStep === 2) { // Customize
+      const customizePos = new THREE.Vector3(4, 5, 11);
+      smoothCameraMoveWithTween(customizePos, 1);
 
-      activeCamera = perspectiveCamera;
-      controls.object = activeCamera;
-      controls.update();
-
-      controls.enableRotate = true;
+  } else if (newStep === 3) { // // Save step
       controls.minPolarAngle = Math.PI / 4;
       controls.maxPolarAngle = Math.PI / 2.2;
       controls.minDistance = 7;
       controls.maxDistance = 15;
-      renderer.clippingPlanes = [];
 
+      const customizePos = new THREE.Vector3(6, 6, 9);
+      smoothCameraMoveWithTween(customizePos, 1);
 
-      const targetPos = new THREE.Vector3(4, 5, 11);
-      smoothCameraMoveWithTween(targetPos, 1);
-
-
-    } else if (newStep === 3) { // Save/Export
-      controls.enableRotate = true;
-      controls.minPolarAngle = Math.PI / 4;
-      controls.maxPolarAngle = Math.PI / 2.2;
-      controls.minDistance = 7;
-      controls.maxDistance = 15;
-      renderer.clippingPlanes = [];
-
-
-      // ← ÄRA liiguta kaamerat! Jäta samasse asendisse.
     }
-  }
-
 
 });
 
@@ -395,7 +380,7 @@ const smoothCameraMoveWithTween = (targetPosition, duration = 1) => {
     duration: duration,
     ease: "power2.inOut", // ← Sujuv kiirendus ja aeglustus
     onUpdate: () => {
-      activeCamera.lookAt(0, 0, 0); // Et kaamera jääks keskenduma mudelile
+      activeCamera.lookAt(0, 0, -2); // Et kaamera jääks keskenduma mudelile
     },
   });
 };
@@ -464,7 +449,19 @@ const totalPrice = computed(() => {
   return basePrice + featurePrice;
 });
 
+// Funktsioonid layout ja customize stepile
+const toggleRoof = () => {
+  if (!model) return;
+  toggleVisibility(model, 'Roof');
+};
 
+
+
+const switchFloor = (floor) => {
+  if (model) {
+    setFloorPlanView(model, floor);
+  }
+};
 
 </script>
 
@@ -694,6 +691,17 @@ html, body {
 
 .toolbar-overlay .btn {
   pointer-events: auto;
+}
+
+.layout-menu {
+  position: absolute;
+  top: 100px;
+  left: 20px;
+  z-index: 20;
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
 
