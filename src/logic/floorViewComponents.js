@@ -1,5 +1,5 @@
 export const floorViewComponents = {
-    //komponendinimed peaksid nähtavad olema.
+    //komponendinimed peidetakse
     floor1: [
         "FULLHOUSE_EXTWALL_LEFT_01",
         "FULLHOUSE_ROOF_SIDE_LEFT_01",
@@ -58,7 +58,6 @@ export const floorViewComponents = {
         "FLOOR2_INTDOOR_FULL_TURNED_B_01"
     ],
     fullHouse: [
-        //empty -.-
     ]
 }
     // the rest of the shenanigans above floor 2

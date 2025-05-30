@@ -3,17 +3,17 @@
     <h3>Floor Plan View</h3>
 
     <button
-        :class="{ active: activeFloor === 'floor1' }"
+        :class="{ active: activeFloor.value === 'floor1' }"
         @click="toggleFloor('floor1')"
     >Floor 1</button>
 
     <button
-        :class="{ active: activeFloor === 'floor2' }"
+        :class="{ active: activeFloor.value === 'floor2' }"
         @click="toggleFloor('floor2')"
     >Floor 2</button>
 
     <button
-        :class="{ active: activeFloor === 'fullHouse' }"
+        :class="{ active: activeFloor.value === 'fullHouse' }"
         @click="toggleFloor('fullHouse')"
     >Full House</button>
 
@@ -27,7 +27,7 @@ import { floorViewComponents } from '../logic/floorViewComponents.js';
 
 const props = defineProps({
   model: Object,
-  activeFloor: String,
+  activeFloor: Object,
   setActiveFloor: Function
 });
 
@@ -37,43 +37,30 @@ const allComponentNames = [
   ...floorViewComponents.fullHouse
 ];
 
-let previouslyHidden = [];
 
 const toggleFloor = (floorName) => {
-  console.log("[Floor Toggle] clicked:", floorName);
   if (!props.model) return;
 
-
-
-  // Untoggle if same floor clicked again
-  if (props.activeFloor === floorName) {
-    console.log("[Floor Toggle] Untoggled floor:", floorName);
-    // Restore visibility
-    allComponentNames.forEach(name => {
-      const obj = props.model.getObjectByName(name);
-      if (obj) obj.visible = true;
-    });
-
-    previouslyHidden = [];
-    props.setActiveFloor("fullHouse");
+  // Kui juba see korrus on aktiivne, ära tee midagi
+  if (props.activeFloor.value === floorName) {
+    console.log(`[Floor Toggle] ${floorName} already active – no action taken.`);
     return;
   }
 
-  // Hide selected floor's components
-  const toHide = floorViewComponents[floorName] || [];
-  const newlyHidden = [];
-
-  console.log("[Floor Toggle] Hiding:", toHide);
-
-  toHide.forEach(name => {
+  // Näita kõik komponendid
+  allComponentNames.forEach(name => {
     const obj = props.model.getObjectByName(name);
-    if (obj && obj.visible) {
-      obj.visible = false;
-      newlyHidden.push(name);
-    }
+    if (obj) obj.visible = true;
   });
 
-  previouslyHidden = newlyHidden;
+  // Peida valitud korruse komponendid
+  const toHide = floorViewComponents[floorName] || [];
+  toHide.forEach(name => {
+    const obj = props.model.getObjectByName(name);
+    if (obj) obj.visible = false;
+  });
+
+  // Aseta aktiivne korrus
   props.setActiveFloor(floorName);
 };
 </script>

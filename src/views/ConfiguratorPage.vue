@@ -61,9 +61,10 @@
         <LayoutPanel
             v-if="isModelLoaded"
             :model="model"
-            :activeFloor="activeFloor.value"
-            :setActiveFloor="(val) => activeFloor = val"
+            :activeFloor="activeFloor"
+            :setActiveFloor="setActiveFloor"
         />
+
 
 
         <div ref="viewer" class="model-viewer"></div>
@@ -137,7 +138,8 @@ const seriesItems = computed(() => store.menuItems[0]?.subItems || []);
 const viewer = ref(null); // Reference to the viewer container
 const isModelLoaded = ref(false);
 
-const activeFloor = "fullHouse";
+const activeFloor = ref("fullHouse");
+
 
 
 let scene, perspectiveCamera, renderer, pivot, animationFrameId, controls;
@@ -426,37 +428,9 @@ const totalPrice = computed(() => {
 });
 
 
-const setComponentsVisible = (names, visible) => {
-  if (!model) return;
-  names.forEach((name) => {
-    const obj = model.getObjectByName(name);
-    if (obj) obj.visible = visible;
-  });
+const setActiveFloor = (val) => {
+  activeFloor.value = val;
 };
-
-const isAnyVisible = (names) => {
-  return names.some((name) => {
-    const obj = model.getObjectByName(name);
-    return obj?.visible;
-  });
-};
-
-const hideComponents = (names) => {
-  if (!model) return;
-  names.forEach((name) => {
-    const obj = model.getObjectByName(name);
-    if (obj) obj.visible = false;
-  });
-};
-const setAllVisible = () => {
-  if (!model) return;
-  model.traverse((child) => {
-    if (child.isMesh) {
-      child.visible = true;
-    }
-  });
-};
-
 
 </script>
 
