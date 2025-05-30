@@ -58,11 +58,13 @@
 
       <div v-else-if="currentStep === 1 || currentStep === 2 || currentStep === 3" class="step-content">
         <!-- Layout step floating menu -->
-        <div v-if="currentStep === 1" class="layout-menu">
-          <h3>Floor Plan View</h3>
-          <button @click="switchFloor('FLOOR1')">Show Floor 1</button>
-          <button @click="switchFloor('FLOOR2')">Show Floor 2</button>
-        </div>
+        <LayoutPanel
+            v-if="isModelLoaded"
+            :model="model"
+            :activeFloor="activeFloor.value"
+            :setActiveFloor="(val) => activeFloor = val"
+        />
+
 
         <div ref="viewer" class="model-viewer"></div>
       </div>
@@ -103,18 +105,20 @@
 
 <script setup>
 // vue components and store
-import { onMounted, ref, watch } from "vue";
+import { onMounted, watch } from "vue";
 import { computed } from "vue";
 import { useConfiguratorStore } from "@/store/configurator.js";
 import StepperComponent from '@/components/Stepper.vue';
 import ToolbarComponent from '@/components/Toolbar.vue';
+import LayoutPanel from '@/components/LayoutPanel.vue';
+import { ref } from 'vue';
 // model and rendering
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { gsap } from "gsap";
 // Layout and customize
-import {setFloorPlanView, toggleVisibility} from '../logic/customizeController.js';
+
 
 
 
@@ -128,6 +132,216 @@ const selectedSeries = computed(() => store.selectedSeries);
 const selectedModel = computed(() => store.selectedModel);
 const isLastStep = computed(() => currentStep.value === store.menuItems.length - 1);
 const seriesItems = computed(() => store.menuItems[0]?.subItems || []);
+
+// Three.js variables
+const viewer = ref(null); // Reference to the viewer container
+const isModelLoaded = ref(false);
+
+const activeFloor = "fullHouse";
+
+
+let scene, perspectiveCamera, renderer, pivot, animationFrameId, controls;
+let activeCamera; // ← uus muutja
+let model = null;
+
+
+const initThreeJs = () => {
+  const container = viewer.value;
+  if (!container) return;
+
+  // Scene setup
+  scene = new THREE.Scene();
+
+  // Camera setup
+  const aspect = container.clientWidth / container.clientHeight;
+// PerspectiveCamera (3D jaoks)
+  perspectiveCamera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+  perspectiveCamera.position.set(4, 5, 11);
+  activeCamera = perspectiveCamera;
+
+  // Renderer setup
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setClearColor(0xffffff); // ← tausta värv
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer.domElement);
+
+  // Lisa OrbitControls
+  controls = new OrbitControls(activeCamera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.maxPolarAngle = Math.PI / 2;  // 90°
+
+
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+  scene.add(ambientLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(10, 10, 10);
+  scene.add(directionalLight);
+
+  // Ground
+  // Ringikujuline põrand
+  const textureLoader = new THREE.TextureLoader();
+  const alphaMap = textureLoader.load(import.meta.env.BASE_URL + 'textures/ground-fade.png');
+
+  const groundMaterial = new THREE.MeshStandardMaterial({
+    color: 0xeeeeee,
+    side: THREE.DoubleSide,
+    alphaMap: alphaMap,
+    transparent: true,
+  });
+
+
+  const groundGeometry = new THREE.CircleGeometry(15, 64);
+  groundGeometry.rotateX(-Math.PI / 2);
+  const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+  scene.add(groundMesh);
+
+
+  // Load the model
+  const loader = new GLTFLoader();
+  loader.load(
+
+      import.meta.env.BASE_URL + 'models/TRIO150/model.glb',
+      (gltf) => {
+        model = gltf.scene;
+        window._model = model;
+
+        isModelLoaded.value = true;
+        model.name = "houseModel"; // Optional, useful for debugging
+
+        // Create a group for proper center rotation
+        pivot = new THREE.Group();
+        scene.add(pivot);
+
+        // Add model to the pivot group
+        pivot.add(model);
+
+        // Scale the model up
+        const scaleFactor = 0.7; // Adjust this value based on your needs
+        model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+        // Center the model on the plane
+        const box = new THREE.Box3().setFromObject(model);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+
+        // Adjust the model's position within the pivot group
+        model.position.set(-center.x, -box.min.y, -center.z);
+
+        console.log("Model is now ready");
+        animate();
+      },
+      undefined,
+      (error) => {
+        console.error("Error loading model:", error);
+      }
+  );
+  // Animation loop
+  animate();
+};
+
+const animate = () => {
+  animationFrameId = requestAnimationFrame(animate);
+
+  controls?.update();
+  renderer.render(scene, activeCamera);
+
+};
+
+
+// Watcher: Initialize Three.js when entering step 2
+import { nextTick } from 'vue'
+
+watch(currentStep, async (newStep) => {
+  await nextTick();
+
+  if ((newStep === 1 || newStep === 2 || newStep === 3)) {
+    if (!renderer && viewer.value) {
+      initThreeJs();
+      await nextTick();
+
+    }
+  }
+
+  if (!controls || !activeCamera) return;
+
+  // Common to all steps
+  controls.object = perspectiveCamera;
+  activeCamera = perspectiveCamera;
+  controls.update();
+
+  // Default reset
+  controls.enableRotate = true;
+  controls.enablePan = true;
+  controls.enableZoom = true;
+  controls.minPolarAngle = 0;
+  controls.maxPolarAngle = Math.PI;
+  controls.minDistance = 0;
+  controls.maxDistance = 100;
+
+
+    if (newStep === 1) { // Step 1 (Layout 2D)
+
+      // Top-down layout view
+      controls.maxPolarAngle = Math.PI / 2.2;
+      controls.enablePan = false;
+      controls.minZoom = 0.5;
+      controls.maxZoom = 2;
+
+      const topDownPos = new THREE.Vector3(0, 13, 3);
+      smoothCameraMoveWithTween(topDownPos, 1);
+
+      if (pivot) pivot.rotation.set(0, 0, 0);
+
+
+  } else if (newStep === 2) { // Customize view
+      controls.maxPolarAngle = Math.PI / 2.2;
+      controls.minDistance = 7;
+      controls.maxDistance = 15;
+
+      const customizePos = new THREE.Vector3(4, 5, 11);
+      smoothCameraMoveWithTween(customizePos, 1);
+
+
+  } else if (newStep === 3) { // // Save step
+      controls.minPolarAngle = Math.PI / 4;
+      controls.maxPolarAngle = Math.PI / 2.2;
+      controls.minDistance = 7;
+      controls.maxDistance = 15;
+
+      const customizePos = new THREE.Vector3(6, 6, 9);
+      smoothCameraMoveWithTween(customizePos, 1);
+
+    }
+
+});
+
+// Animated camera
+
+const smoothCameraMoveWithTween = (targetPosition, duration = 1) => {
+  gsap.to(activeCamera.position, {
+    x: targetPosition.x,
+    y: targetPosition.y,
+    z: targetPosition.z,
+    duration: duration,
+    ease: "power2.inOut", // ← Sujuv kiirendus ja aeglustus
+    onUpdate: () => {
+      activeCamera.lookAt(0, 0, -2); // Et kaamera jääks keskenduma mudelile
+    },
+  });
+};
+
+// Ensure Three.js is initialized on step 2 if component is mounted directly
+onMounted(() => {
+  if (currentStep.value === 1) {
+    initThreeJs();
+  }
+});
+
+// Actions
 
 // Actions
 const toggleStep = (index) => store.updateStep(index);
@@ -170,248 +384,10 @@ const proceedToNextStep = () => {
 };
 
 
-
 // Actions for series and model selection
 const selectSeries = (series) => store.selectSeries(series);
 const selectModel = (model) => store.selectModel(model);
 
-
-// Three.js variables
-const viewer = ref(null); // Reference to the viewer container
-let scene, perspectiveCamera, renderer, model, pivot, animationFrameId, controls;
-let activeCamera; // ← uus muutja
-
-
-
-const initThreeJs = () => {
-  const container = viewer.value;
-  if (!container) return;
-
-  // Scene setup
-  scene = new THREE.Scene();
-
-  // Camera setup
-  const aspect = container.clientWidth / container.clientHeight;
-// PerspectiveCamera (3D jaoks)
-  perspectiveCamera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-  perspectiveCamera.position.set(4, 5, 11);
-
-
-  activeCamera = perspectiveCamera; // ← vaikimisi perspectiveCamera
-
-  // Renderer setup
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setClearColor(0xffffff); // ← valge taust
-  renderer.setSize(container.clientWidth, container.clientHeight);
-  renderer.setPixelRatio(window.devicePixelRatio);
-  container.appendChild(renderer.domElement);
-
-  // Lisa OrbitControls
-  controls = new OrbitControls(activeCamera, renderer.domElement);
-
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.05;
-
-  controls.maxPolarAngle = Math.PI / 2;  // 90°
-
-
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-  scene.add(ambientLight);
-
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-  directionalLight.position.set(10, 10, 10);
-  scene.add(directionalLight);
-
-  // Ground
-  // Ringikujuline põrand
-  const textureLoader = new THREE.TextureLoader();
-  const alphaMap = textureLoader.load(import.meta.env.BASE_URL + 'textures/ground-fade.png');
-
-  const groundMaterial = new THREE.MeshStandardMaterial({
-    color: 0xeeeeee,
-    side: THREE.DoubleSide,
-    alphaMap: alphaMap,
-    transparent: true,
-  });
-
-
-  const groundGeometry = new THREE.CircleGeometry(15, 64);
-  groundGeometry.rotateX(-Math.PI / 2);
-  const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
-  scene.add(groundMesh);
-
-
-
-  // Load the model
-  const loader = new GLTFLoader();
-  loader.load(
-
-      import.meta.env.BASE_URL + 'models/TRIO150/model.glb',
-      (gltf) => {
-        model = gltf.scene;
-
-        // Create a group for proper center rotation
-        pivot = new THREE.Group();
-        scene.add(pivot);
-
-        // Add model to the pivot group
-        pivot.add(model);
-
-        // Scale the model up
-        const scaleFactor = 0.7; // Adjust this value based on your needs
-        model.scale.set(scaleFactor, scaleFactor, scaleFactor);
-
-        // Center the model on the plane
-        const box = new THREE.Box3().setFromObject(model);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-
-        // Adjust the model's position within the pivot group
-        model.position.set(-center.x, -box.min.y, -center.z);
-
-        animate();
-      },
-      undefined,
-      (error) => {
-        console.error("Error loading model:", error);
-      }
-  );
-
-
-  // Animation loop
-  animate();
-};
-
-const animate = () => {
-  animationFrameId = requestAnimationFrame(animate);
-
-  controls?.update();
-  renderer.render(scene, activeCamera);
-
-  renderer.localClippingEnabled = true;
-
-};
-
-
-// Watcher: Initialize Three.js when entering step 2
-import { nextTick } from 'vue'
-
-watch(currentStep, async (newStep) => {
-  await nextTick();
-
-
-
-  if ((newStep === 1 || newStep === 2 || newStep === 3)) {
-    if (!renderer && viewer.value) {
-      initThreeJs();
-      await nextTick();
-
-    }
-  }
-
-  console.log("Switched to camera:", activeCamera?.type || "undefined"); // camera check
-
-
-  if (!controls || !activeCamera) return;
-
-  //controls.reset();
-
-
-  // Common to all steps
-  controls.object = perspectiveCamera;
-  activeCamera = perspectiveCamera;
-  controls.update();
-
-
-  // Default reset
-  controls.enableRotate = true;
-  controls.enablePan = true;
-  controls.enableZoom = true;
-  controls.minPolarAngle = 0;
-  controls.maxPolarAngle = Math.PI;
-  controls.minDistance = 0;
-  controls.maxDistance = 100;
-
-
-    if (newStep === 1) { // Step 1 (Layout 2D)
-
-      // Top-down layout view
-      controls.maxPolarAngle = Math.PI / 2.2;
-      controls.enablePan = false;
-      controls.minZoom = 0.5;
-      controls.maxZoom = 2;
-
-
-
-      const topDownPos = new THREE.Vector3(0, 13, 3);
-      smoothCameraMoveWithTween(topDownPos, 1);
-
-      if (pivot) pivot.rotation.set(0, 0, 0);
-
-  } else if (newStep === 2) { // Customize view
-      controls.maxPolarAngle = Math.PI / 2.2;
-      controls.minDistance = 7;
-      controls.maxDistance = 15;
-
-      const customizePos = new THREE.Vector3(4, 5, 11);
-      smoothCameraMoveWithTween(customizePos, 1);
-
-  } else if (newStep === 3) { // // Save step
-      controls.minPolarAngle = Math.PI / 4;
-      controls.maxPolarAngle = Math.PI / 2.2;
-      controls.minDistance = 7;
-      controls.maxDistance = 15;
-
-      const customizePos = new THREE.Vector3(6, 6, 9);
-      smoothCameraMoveWithTween(customizePos, 1);
-
-    }
-
-});
-
-// Animated camera
-
-const smoothCameraMoveWithTween = (targetPosition, duration = 1) => {
-  gsap.to(activeCamera.position, {
-    x: targetPosition.x,
-    y: targetPosition.y,
-    z: targetPosition.z,
-    duration: duration,
-    ease: "power2.inOut", // ← Sujuv kiirendus ja aeglustus
-    onUpdate: () => {
-      activeCamera.lookAt(0, 0, -2); // Et kaamera jääks keskenduma mudelile
-    },
-  });
-};
-
-// Sujuv kaamera liikumine
-const smoothCameraMove = (targetPosition, duration = 1) => {
-  const startPosition = activeCamera.position.clone();
-  const startTime = performance.now();
-
-  const animateMove = (now) => {
-    const elapsed = (now - startTime) / 1000;
-    const t = Math.min(elapsed / duration, 1); // clamp t between 0 and 1
-
-    activeCamera.position.lerpVectors(startPosition, targetPosition, t);
-    activeCamera.lookAt(0, 0, 0);
-
-    if (t < 1) {
-      requestAnimationFrame(animateMove);
-    }
-  };
-
-  requestAnimationFrame(animateMove);
-};
-
-
-// Ensure Three.js is initialized on step 2 if component is mounted directly
-onMounted(() => {
-  if (currentStep.value === 1) {
-    initThreeJs();
-  }
-});
 
 // funktsioonid seeriatele ja mudelitele
 
@@ -449,19 +425,38 @@ const totalPrice = computed(() => {
   return basePrice + featurePrice;
 });
 
-// Funktsioonid layout ja customize stepile
-const toggleRoof = () => {
+
+const setComponentsVisible = (names, visible) => {
   if (!model) return;
-  toggleVisibility(model, 'Roof');
+  names.forEach((name) => {
+    const obj = model.getObjectByName(name);
+    if (obj) obj.visible = visible;
+  });
 };
 
-
-
-const switchFloor = (floor) => {
-  if (model) {
-    setFloorPlanView(model, floor);
-  }
+const isAnyVisible = (names) => {
+  return names.some((name) => {
+    const obj = model.getObjectByName(name);
+    return obj?.visible;
+  });
 };
+
+const hideComponents = (names) => {
+  if (!model) return;
+  names.forEach((name) => {
+    const obj = model.getObjectByName(name);
+    if (obj) obj.visible = false;
+  });
+};
+const setAllVisible = () => {
+  if (!model) return;
+  model.traverse((child) => {
+    if (child.isMesh) {
+      child.visible = true;
+    }
+  });
+};
+
 
 </script>
 
@@ -661,14 +656,6 @@ html, body {
 }
 
 
-.price-box-enter-active,
-.price-box-leave-active {
-  transition: opacity 0.4s ease;
-}
-.price-box-enter-from,
-.price-box-leave-to {
-  opacity: 0;
-}
 
 .details-btn {
   margin-top: 10px;
@@ -691,17 +678,6 @@ html, body {
 
 .toolbar-overlay .btn {
   pointer-events: auto;
-}
-
-.layout-menu {
-  position: absolute;
-  top: 100px;
-  left: 20px;
-  z-index: 20;
-  background: white;
-  padding: 1rem;
-  border-radius: 6px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
 
