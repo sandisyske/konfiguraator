@@ -1,10 +1,15 @@
 // Pinia stores for state management
 
 import { defineStore } from "pinia";
+import {ref} from "vue";
 
 export const useConfiguratorStore = defineStore("configurator", {
     state: () => ({
         currentStep: 0,
+        activeFloor: 'floor1',
+        selectedSeries: null,
+        selectedModel: null,
+        addedFeatures: [],
         menuItems: [
             {
                 name: "Select House Model",
@@ -187,9 +192,6 @@ export const useConfiguratorStore = defineStore("configurator", {
             { name: "Customize", subItems: [{ name: "Wall color" }, { name: "Roofing" }] },
             { name: "Save/Export" },
         ],
-        selectedSeries: null,
-        selectedModel: null,
-        addedFeatures: [],
     }),
 
 

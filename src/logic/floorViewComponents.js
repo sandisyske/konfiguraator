@@ -60,7 +60,7 @@ export const floorViewComponents = {
     fullHouse: [
     ]
 }
-    // the rest of the shenanigans above floor 2
+    // the rest of the shenanigans above floor 2, just for me to know
     //"FULLHOUSE_EXTWALL_LEFT_01",
     //"FULLHOUSE_EXTWALL_RIGHT_01",
     //"FULLHOUSE_ROOF_SIDE_LEFT_01",

@@ -61,9 +61,8 @@
         <LayoutPanel
             v-if="isModelLoaded"
             :model="model"
-            :activeFloor="activeFloor"
-            :setActiveFloor="setActiveFloor"
         />
+
 
 
 
@@ -106,21 +105,21 @@
 
 <script setup>
 // vue components and store
-import { onMounted, watch } from "vue";
+import {onMounted, watch, watchEffect} from "vue";
 import { computed } from "vue";
 import { useConfiguratorStore } from "@/store/configurator.js";
+import { nextTick } from 'vue'
+import { ref } from 'vue';
+import * as THREE from 'three';
+import { gsap } from "gsap";
+// Components
 import StepperComponent from '@/components/Stepper.vue';
 import ToolbarComponent from '@/components/Toolbar.vue';
 import LayoutPanel from '@/components/LayoutPanel.vue';
-import { ref } from 'vue';
+import { floorViewComponents } from '@/logic/floorViewComponents.js'
 // model and rendering
-import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { gsap } from "gsap";
-// Layout and customize
-
-
 
 
 // Access the store from Pinia
@@ -138,7 +137,6 @@ const seriesItems = computed(() => store.menuItems[0]?.subItems || []);
 const viewer = ref(null); // Reference to the viewer container
 const isModelLoaded = ref(false);
 
-const activeFloor = ref("fullHouse");
 
 
 
@@ -189,7 +187,7 @@ const initThreeJs = () => {
   const alphaMap = textureLoader.load(import.meta.env.BASE_URL + 'textures/ground-fade.png');
 
   const groundMaterial = new THREE.MeshStandardMaterial({
-    color: 0xeeeeee,
+    color: 0xFFFFFF,
     side: THREE.DoubleSide,
     alphaMap: alphaMap,
     transparent: true,
@@ -220,6 +218,7 @@ const initThreeJs = () => {
 
         // Add model to the pivot group
         pivot.add(model);
+        console.log("Model is mounted into DOM")
 
         // Scale the model up
         const scaleFactor = 0.7; // Adjust this value based on your needs
@@ -234,7 +233,10 @@ const initThreeJs = () => {
         model.position.set(-center.x, -box.min.y, -center.z);
 
         console.log("Model is now ready");
+        toggleFloor('floor1');
         animate();
+
+
       },
       undefined,
       (error) => {
@@ -248,14 +250,12 @@ const initThreeJs = () => {
 const animate = () => {
   animationFrameId = requestAnimationFrame(animate);
 
+  if (!scene || !renderer || !activeCamera) return; // ← siia tuleb kontroll
+
   controls?.update();
   renderer.render(scene, activeCamera);
-
 };
 
-
-// Watcher: Initialize Three.js when entering step 2
-import { nextTick } from 'vue'
 
 watch(currentStep, async (newStep) => {
   await nextTick();
@@ -264,7 +264,6 @@ watch(currentStep, async (newStep) => {
     if (!renderer && viewer.value) {
       initThreeJs();
       await nextTick();
-
     }
   }
 
@@ -286,8 +285,9 @@ watch(currentStep, async (newStep) => {
 
 
     if (newStep === 1) { // Step 1 (Layout 2D)
+      if (model) toggleFloor('floor1');
 
-      // Top-down layout view
+      // Layout view
       controls.maxPolarAngle = Math.PI / 2.2;
       controls.enablePan = false;
       controls.minZoom = 0.5;
@@ -300,12 +300,16 @@ watch(currentStep, async (newStep) => {
 
 
   } else if (newStep === 2) { // Customize view
+      if (model) toggleFloor('fullHouse');
+
+      // Customize view
       controls.maxPolarAngle = Math.PI / 2.2;
       controls.minDistance = 7;
       controls.maxDistance = 15;
 
       const customizePos = new THREE.Vector3(4, 5, 11);
       smoothCameraMoveWithTween(customizePos, 1);
+
 
 
   } else if (newStep === 3) { // // Save step
@@ -317,6 +321,20 @@ watch(currentStep, async (newStep) => {
       const customizePos = new THREE.Vector3(6, 6, 9);
       smoothCameraMoveWithTween(customizePos, 1);
 
+    } else if (newStep === 0) {
+      // Eemalda mudel DOM-ist ja nulli Three.js asjad
+      if (renderer && viewer.value) {
+        viewer.value.removeChild(renderer.domElement);
+      }
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      scene = null;
+      model = null;
+      renderer = null;
+      pivot = null;
+      isModelLoaded.value = false;
     }
 
 });
@@ -342,8 +360,6 @@ onMounted(() => {
     initThreeJs();
   }
 });
-
-// Actions
 
 // Actions
 const toggleStep = (index) => store.updateStep(index);
@@ -392,8 +408,6 @@ const selectModel = (model) => store.selectModel(model);
 
 
 // funktsioonid seeriatele ja mudelitele
-
-
 const getSeriesDescription = (seriesName) => {
   switch (seriesName) {
     case "Solo+":
@@ -426,11 +440,32 @@ const totalPrice = computed(() => {
 
   return basePrice + featurePrice;
 });
+ // FloorView
+function toggleFloor(floorName) {
+  if (!model || !scene || !renderer) return;
 
 
-const setActiveFloor = (val) => {
-  activeFloor.value = val;
-};
+  const allComponentNames = Object.values(floorViewComponents).flat();
+  allComponentNames.forEach(name => {
+    const obj = model.getObjectByName(name);
+    if (obj) obj.visible = true;
+  });
+
+  const toHide = floorViewComponents[floorName] || [];
+  toHide.forEach(name => {
+    const obj = model.getObjectByName(name);
+    if (obj) obj.visible = false;
+  });
+
+  store.activeFloor = floorName;
+}
+
+
+
+
+
+
+
 
 </script>
 
