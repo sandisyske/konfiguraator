@@ -192,6 +192,54 @@ export const useConfiguratorStore = defineStore("configurator", {
             { name: "Customize", subItems: [{ name: "Wall color" }, { name: "Roofing" }] },
             { name: "Save/Export" },
         ],
+        layoutSelections: {
+            floor1: {
+                walls: 'DOUBLE BEDROOM', // radio
+                dormers: {
+                    bedroomLeft: null,
+                    bedroomRight: null,
+                    wcLeft: null,
+                    corridorLeft: 'standard',
+                    livingRoomLeft: null,
+                    livingRoomRight: null
+                },
+                skylights: {
+                    bedroomLeft: false,
+                    bedroomRight: false,
+                    wcLeft: false,
+                    livingRoomLeft: false,
+                    livingRoomRight: false
+                },
+                sideWindowConfig: 'normal' // radio: normal, angled, maximum
+            },
+            floor2: {
+                skylights: {
+                    northLeft: false,
+                    northRight: false,
+                    corridor: false,
+                    toilet: false,
+                    southLeft: true,
+                    southRight: false
+                }
+            },
+            fullHouse: {
+                exteriorDoor: 'halfGlass', // radio: halfGlass / fullGlass
+                terraceSize: {
+                    north: 'none',  // none / short / medium / long
+                    south: 'none'
+                }
+
+            }
+        },
+        customize: {
+            wallColor: 'natural',
+            roofing: 'RR33',
+            interiorCladding: 'natural',
+            exteriorCladding: 'natural',
+            terraceColor: 'green'
+        }
+
+
     }),
 
 

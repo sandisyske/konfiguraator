@@ -59,9 +59,14 @@
       <div v-else-if="currentStep === 1 || currentStep === 2 || currentStep === 3" class="step-content">
         <!-- Layout step floating menu -->
         <LayoutPanel
-            v-if="isModelLoaded"
+            v-if="isModelLoaded && currentStep === 1"
             :model="model"
         />
+        <CustomizePanel
+            v-if="isModelLoaded && currentStep === 2"
+            :model="model"
+        />
+
 
 
 
@@ -116,6 +121,7 @@ import { gsap } from "gsap";
 import StepperComponent from '@/components/Stepper.vue';
 import ToolbarComponent from '@/components/Toolbar.vue';
 import LayoutPanel from '@/components/LayoutPanel.vue';
+import CustomizePanel from '@/components/CutomizePanel.vue'
 import { floorViewComponents } from '@/logic/floorViewComponents.js'
 // model and rendering
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
