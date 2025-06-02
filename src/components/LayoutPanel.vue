@@ -20,7 +20,9 @@
     <!-- Scrollitav akordionite ala -->
     <div class="accordion-scroll-area">
     <!-- Accordion for Floor 1 -->
+
       <div v-if="store.activeFloor === 'floor1'" class="accordion-section">
+
         <Accordion title="Interior Walls">
           <div class="styled-radio-group">
             <label
@@ -47,6 +49,7 @@
           </div>
         </Accordion>
         <!-- Accordion for Skylights -->
+
         <Accordion title="Skylights">
           <div
               class="toggle-switch-group"

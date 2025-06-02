@@ -199,7 +199,6 @@ export const useConfiguratorStore = defineStore("configurator", {
                     bedroomLeft: null,
                     bedroomRight: null,
                     wcLeft: null,
-                    corridorLeft: 'standard',
                     livingRoomLeft: null,
                     livingRoomRight: null
                 },
@@ -273,3 +272,4 @@ export const useConfiguratorStore = defineStore("configurator", {
 
     },
 });
+

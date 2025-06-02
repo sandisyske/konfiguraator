@@ -123,6 +123,9 @@ import ToolbarComponent from '@/components/Toolbar.vue';
 import LayoutPanel from '@/components/LayoutPanel.vue';
 import CustomizePanel from '@/components/CutomizePanel.vue'
 import { floorViewComponents } from '@/logic/floorViewComponents.js'
+import { defaultVisibleComponents } from '@/logic/defaultVisibleComponents.js';
+import { allComponentNames } from '@/logic/allComponentNames.js';
+
 // model and rendering
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
@@ -237,12 +240,29 @@ const initThreeJs = () => {
 
         // Adjust the model's position within the pivot group
         model.position.set(-center.x, -box.min.y, -center.z);
+// SEE ON MATERJALI VÄRVI MUUTMISEKS; VALI KONSOOLIST TEKSTUUR JA VÄRVI LISA TEXTUUR
+        /**const testMatName = 'Exterior_Cladding';
+        model.traverse((child) => {
+          if (child.isMesh && child.material) {
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach((mat) => {
+              console.log('Material object:', mat);
+
+              if (mat.name === testMatName) {
+                console.log(`✅ Material ${testMatName} found!`);
+                mat.color.set('#e600ff'); // test – värvi roheliseks
+              }
+            });
+          }
+        });**/
+
+        console.log("Setting default visibility");
+        setInitialVisibility(model, defaultVisibleComponents);
+
 
         console.log("Model is now ready");
         toggleFloor('floor1');
         animate();
-
-
       },
       undefined,
       (error) => {
@@ -466,12 +486,16 @@ function toggleFloor(floorName) {
   store.activeFloor = floorName;
 }
 
+function setInitialVisibility(model, defaultVisibleNames) {
+  if (!model) return;
 
-
-
-
-
-
+  allComponentNames.forEach(name => {
+    const obj = model.getObjectByName(name);
+    if (obj) {
+      obj.visible = defaultVisibleNames.includes(name);
+    }
+  });
+}
 
 </script>
 
